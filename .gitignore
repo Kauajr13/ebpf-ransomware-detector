@@ -1,0 +1,7 @@
+*.o
+*.skel.h
+include/vmlinux.h
+ransomware_detect
+tests/sim_encrypt
+tests/sim_benign
+__pycache__/
