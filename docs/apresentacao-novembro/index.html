@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>O que mudou desde agosto</title>
-<meta name="description" content="Segunda apresentação do TCC sobre detecção de ransomware no kernel Linux com eBPF: o que mudou desde agosto, com calibração, custo e tempo até o bloqueio.">
+<title>Segunda apresentação do TCC</title>
+<meta name="description" content="Segunda apresentação do TCC sobre monitoramento de ransomware em nível de kernel com eBPF: andamento desde agosto de 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -14,39 +14,123 @@
 <main class="deck">
 
 <section class="slide capa" aria-label="Capa">
-  <div class="capa__texto">
-    <h1>O que mudou desde agosto</h1>
-    <p class="lead">Detector de ransomware no kernel Linux, com eBPF, entropia e qui-quadrado.</p>
-    <dl>
-      <dt>Aluno</dt><dd>Kauã Junior Silva Soares, RA 231024061</dd>
-      <dt>Orientador</dt><dd>Prof. Dr. Kelton Augusto Pontara da Costa</dd>
-      <dt>Quando</dt><dd>Segunda apresentação, novembro de 2026</dd>
-    </dl>
-  </div>
-  <div class="leitura" aria-label="Alarmes falsos em 40 execuções">
-    <span class="leitura__antes">6/40</span>
-    <span class="leitura__agora">0/40</span>
-    <p>execuções benignas com alarme falso. <span class="quem">Regra nova</span>, detecção mantida em 100%.</p>
-  </div>
-  <footer class="folio"><span>TCC, UNESP Bauru</span><span class="measured">1</span></footer>
+  <h1>Monitoramento de ransomware em nível de kernel utilizando eBPF e análise de entropia</h1>
+  <p class="sub">Segunda apresentação: andamento desde agosto de 2026</p>
+  <dl>
+    <dt>Aluno</dt><dd>Kauã Junior Silva Soares, RA 231024061</dd>
+    <dt>Orientador</dt><dd>Prof. Dr. Kelton Augusto Pontara da Costa</dd>
+    <dt>Curso</dt><dd>Bacharelado em Ciência da Computação, UNESP Bauru</dd>
+  </dl>
+  <footer class="folio"><span>Trabalho de Conclusão de Curso</span><span class="measured">1</span></footer>
 </section>
 
-<section class="slide" aria-label="As pendências de agosto">
-  <h2>Agosto terminou com três pendências</h2>
-  <div class="trilha">
-    <div class="trilha__linha"><span class="trilha__nome">Calibrar os limiares</span><span class="trilha__nota">O 7,8 era só ponto de partida</span><span class="estado estado--ok">Resolvida</span></div>
-    <div class="trilha__linha"><span class="trilha__nome">Medir o custo</span><span class="trilha__nota">Quanto o detector pesa na escrita</span><span class="estado estado--ok">Resolvida</span></div>
-    <div class="trilha__linha"><span class="trilha__nome">Amostras reais</span><span class="trilha__nota">Ransomware de verdade em VM isolada</span><span class="estado estado--pendente">Pendente</span></div>
-  </div>
-  <p>Esta apresentação segue a ordem dessa lista, mais o que apareceu no caminho.</p>
-  <footer class="folio"><span>Ponto de partida</span><span class="measured">2</span></footer>
-</section>
-
-<section class="slide" aria-label="Entropia contra qui-quadrado">
-  <h2>A entropia sozinha confunde compressão com cifra</h2>
-  <div class="duas duas--graficos">
+<section class="slide" aria-label="Contexto">
+  <header class="cabeca">
+    <h2>Contexto</h2>
+    <p>Um caso recente de ransomware contra servidores, documentado por fonte oficial.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>Em fevereiro de 2023, a CISA e o FBI publicaram o alerta AA23-039A sobre o ESXiArgs. Segundo o alerta, a campanha comprometeu mais de 3.800 servidores VMware ESXi e cifrou os arquivos de configuração das máquinas virtuais, o que pode deixar as máquinas inutilizáveis.</p>
+      <p>Esse tipo de ataque acontece no sistema de arquivos do servidor: um processo sobrescreve muitos arquivos em pouco tempo. É esse comportamento que o detector observa no kernel Linux.</p>
+    </div>
     <figure>
-      <svg class="grafico" viewBox="0 0 456 252" role="img" aria-label="Entropia corrigida por carga">
+      <img src="img/cisa-aa23-039a.png" width="1280" height="720" alt="Página do alerta AA23-039A no site da CISA, com o título ESXiArgs Ransomware Virtual Machine Recovery Guidance e a data de 8 de fevereiro de 2023">
+      <figcaption>Alerta AA23-039A, CISA e FBI, 8 de fevereiro de 2023. Captura de cisa.gov feita em 9 de novembro de 2026.</figcaption>
+    </figure>
+  </div>
+  <footer class="folio"><span>Contexto</span><span class="measured">2</span></footer>
+</section>
+
+<section class="slide" aria-label="Funcionamento do detector">
+  <header class="cabeca">
+    <h2>Funcionamento do detector</h2>
+    <p>Revisão da arquitetura apresentada em agosto, já com as mudanças feitas desde então.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>Toda escrita em arquivo no Linux passa pela função <code>vfs_write</code> do kernel. Um programa eBPF preso a ela por um kprobe lê o começo de cada escrita e conta, por processo, quantas vezes cada valor de byte apareceu.</p>
+      <p>Quando um processo passa de 64 KiB escritos em 10 arquivos diferentes dentro de 10 segundos, o histograma sobe para o agente em espaço de usuário, que calcula a entropia e decide se mata o processo.</p>
+      <div class="analogia"><p><b>Analogia.</b> Funciona como um fiscal parado na única porta de saída de um depósito. Ele não precisa percorrer os corredores, porque tudo o que sai passa por ele.</p></div>
+    </div>
+    <figure>
+      <svg class="diagrama" viewBox="0 0 600 340" role="img" aria-label="Diagrama do caminho de uma escrita até o detector">
+        <defs><marker id="ponta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ponta" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="regiao" x="4" y="4" width="592" height="104" rx="8"/>
+        <text class="regiao-nome" x="16" y="24">espaço de usuário</text>
+        <rect class="regiao" x="4" y="126" width="592" height="208" rx="8"/>
+        <text class="regiao-nome" x="16" y="146">kernel</text>
+        <rect class="caixa" x="24" y="40" width="150" height="52" rx="6"/>
+        <text class="titulo" x="40" y="71">Processo</text>
+        <rect class="caixa" x="380" y="40" width="196" height="52" rx="6"/>
+        <text class="titulo" x="396" y="62">Agente</text>
+        <text x="396" y="82">entropia, decisão, kill</text>
+        <rect class="caixa caixa--kernel" x="24" y="190" width="150" height="52" rx="6"/>
+        <text class="mono" x="40" y="221">vfs_write</text>
+        <rect class="caixa caixa--kernel" x="210" y="160" width="200" height="160" rx="6"/>
+        <text class="titulo" x="226" y="184">Programa eBPF</text>
+        <text x="226" y="210">lê até 512 bytes</text>
+        <text x="226" y="234">histograma por processo</text>
+        <text x="226" y="258">volume, arquivos, janela</text>
+        <text x="226" y="282">qui-quadrado inteiro</text>
+        <rect class="caixa caixa--kernel" x="446" y="190" width="130" height="52" rx="6"/>
+        <text class="titulo" x="462" y="221">Ring buffer</text>
+        <path class="seta" d="M99,92 L99,186"/>
+        <text class="mono" x="108" y="146">write()</text>
+        <path class="seta" d="M174,216 L206,216"/>
+        <path class="seta" d="M410,216 L442,216"/>
+        <path class="seta" d="M511,190 L511,96"/>
+        <path class="seta" d="M380,66 L178,66"/>
+        <text class="mono" x="246" y="58">SIGKILL</text>
+      </svg>
+      <figcaption>Caminho de uma escrita até a decisão. O programa eBPF está em <code>src/bpf/ransomware_detect.bpf.c</code> e o agente em <code>src/userspace/main.cpp</code>.</figcaption>
+    </figure>
+  </div>
+  <footer class="folio"><span>Arquitetura</span><span class="measured">3</span></footer>
+</section>
+
+<section class="slide" aria-label="Pendências da primeira apresentação">
+  <header class="cabeca">
+    <h2>Pendências da primeira apresentação</h2>
+    <p>A apresentação de agosto terminou com três itens em aberto. Os slides seguintes seguem essa ordem.</p>
+  </header>
+  <table class="tabela">
+    <thead><tr><th>Item</th><th>Situação em agosto</th><th>Situação agora</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>Calibrar os limiares</td><td>O limiar de 7,8 vinha do ShieldFS e não tinha sido testado contra uso legítimo.</td><td>Calibrado em 40 execuções. Durante a preparação desta apresentação encontrei uma limitação com arquivos comprimidos grandes.</td><td><span class="estado estado--ok">feito</span></td></tr>
+      <tr><td>Medir o custo</td><td>Sem medição.</td><td>Medido com fio em quatro cargas, em disco e em memória.</td><td><span class="estado estado--ok">feito</span></td></tr>
+      <tr><td>Testar amostras reais</td><td>Planejado para VM isolada.</td><td>Ainda não começou. Depende da VM e do aval do orientador.</td><td><span class="estado estado--pendente">pendente</span></td></tr>
+    </tbody>
+  </table>
+  <p>Além desses itens, a revisão do código mostrou três defeitos no programa eBPF e dois erros nas medições de agosto, que também estão nesta apresentação.</p>
+  <footer class="folio"><span>Andamento</span><span class="measured">4</span></footer>
+</section>
+
+<section class="slide" aria-label="Entropia e qui-quadrado">
+  <header class="cabeca">
+    <h2>Entropia e qui-quadrado</h2>
+    <p>As duas medidas que o detector aplica ao histograma de bytes, em quatro arquivos reais.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>A entropia de Shannon mede o quanto cada byte é imprevisível, de 0 a 8 bits. O qui-quadrado mede o quanto a contagem de cada valor se afasta da contagem esperada se os 256 valores fossem igualmente prováveis. Para dado cifrado, o esperado fica perto de 255.</p>
+      <div class="analogia"><p><b>Exemplo.</b> Para saber se um dado é honesto, joga-se o dado 600 vezes e conta-se cada face. Se todas as faces aparecem mas uma sai 150 vezes e outra 50, o dado é viciado. A entropia percebe que todas as faces apareceram. O qui-quadrado percebe a proporção errada.</p></div>
+    </div>
+    <figure>
+      <img src="img/histogramas.png" width="1800" height="1040" alt="Quatro histogramas de bytes. Texto concentrado em poucos valores, foto JPG irregular, gzip e cifrado quase planos">
+      <figcaption>64 KiB de cada arquivo. Texto de <code>/usr/include</code>, foto de <code>/usr/share/backgrounds</code> e gzip tirados do meio do arquivo, cifra AES-256 do mesmo texto com openssl. No trecho de gzip as duas medidas ficam perto das da cifra, o que volta no slide 7.</figcaption>
+    </figure>
+  </div>
+  <footer class="folio"><span>Fundamentação</span><span class="measured">5</span></footer>
+</section>
+
+<section class="slide" aria-label="Calibração do critério de decisão">
+  <header class="cabeca">
+    <h2>Calibração do critério de decisão</h2>
+    <p>Detector em modo monitor durante 13 cargas, 3 vezes cada, mais 60 segundos de máquina ociosa. Nove cargas são uso legítimo, como compactar, extrair fotos e gerar vídeo. Quatro cifram arquivos.</p>
+  </header>
+  <figure class="figura-larga">
+    <div class="duas-graficos"><svg class="grafico" viewBox="0 0 456 252" role="img" aria-label="Entropia corrigida por carga">
 <line class="grade" x1="150.0" y1="4" x2="150.0" y2="208"/>
 <text class="eixo" x="150.0" y="226" text-anchor="middle">7,4</text>
 <line class="grade" x1="239.2" y1="4" x2="239.2" y2="208"/>
@@ -74,11 +158,7 @@
 <text class="rotulo" x="0" y="200.5">vídeo em segmentos</text>
 <rect class="marca" x="181.2" y="189.5" width="5.0" height="12" rx="2"/>
 <text class="eixo" x="150" y="246">entropia, eixo começa em 7,4</text>
-</svg>
-      <figcaption>As fotos extraídas ficam a só 0,012 bit da cifra.</figcaption>
-    </figure>
-    <figure>
-      <svg class="grafico" viewBox="142 0 314 252" role="img" aria-label="Qui-quadrado por carga">
+</svg><svg class="grafico" viewBox="142 0 314 252" role="img" aria-label="Qui-quadrado por carga">
 <line class="grade" x1="150.0" y1="4" x2="150.0" y2="208"/>
 <text class="eixo" x="150.0" y="226" text-anchor="middle">100</text>
 <line class="grade" x1="240.6" y1="4" x2="240.6" y2="208"/>
@@ -98,153 +178,266 @@
 <rect class="marca" x="331.1" y="164.5" width="8.1" height="12" rx="2"/>
 <rect class="marca" x="421.6" y="189.5" width="5.0" height="12" rx="2"/>
 <text class="eixo" x="150" y="246">qui-quadrado, escala log</text>
-</svg>
-      <figcaption>A cifra fica até 361. Nenhuma carga benigna desce de 731.</figcaption>
+</svg></div>
+    <figcaption>Faixa de cada carga nas 3 execuções. Pela entropia, as fotos extraídas ficam a 0,012 bit da cifra. Pelo qui-quadrado, a cifra vai até 361 e nenhuma carga benigna da calibração fica abaixo de 731.</figcaption>
+  </figure>
+  <div class="resultados">
+    <p>Entropia ≥ 7,8: <span class="ruim">alarme falso em 6 de 40 execuções</span>, todas de gzip e fotos.</p>
+    <p>Entropia corrigida ≥ 7,8 e qui-quadrado ≤ 500: <span class="bom">0 de 40</span>. As duas regras detectaram todas as cifragens.</p>
+  </div>
+  <footer class="folio"><span>bench/results/fp/calibracao.md</span><span class="measured">6</span></footer>
+</section>
+
+<section class="slide" aria-label="Limitação com arquivos comprimidos grandes">
+  <header class="cabeca">
+    <h2>Limitação: arquivos comprimidos grandes</h2>
+    <p>Caso testado depois da calibração, ao preparar esta apresentação, e que a regra atual não resolve.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>Nas cargas da calibração os arquivos comprimidos eram pequenos, e a amostra de 512 bytes pegava o cabeçalho e as tabelas do gzip. Em arquivos grandes, a amostra cai no meio do fluxo comprimido, que é quase uniforme.</p>
+      <p>Testei um processo comprimindo 12 arquivos de cerca de 2 MiB cada, emulando o detector sobre o strace. O gzip e o zstd geraram alarme falso. O xz escapou só porque levou mais de 10 segundos para chegar a 10 arquivos.</p>
+      <p>Uma saída que pretendo testar é diferenciar quem sobrescreve os arquivos que acabou de ler, como faz um ransomware, de quem cria arquivos novos, como faz um compressor.</p>
+    </div>
+    <figure>
+      <table class="tabela">
+        <thead><tr><th>Compressor</th><th>Entropia corrigida</th><th>Qui-quadrado</th><th>Resultado</th></tr></thead>
+        <tbody>
+          <tr><td>gzip</td><td class="num">7,995</td><td class="num">335</td><td class="ruim">alarme falso</td></tr>
+          <tr><td>zstd</td><td class="num">7,998</td><td class="num">332</td><td class="ruim">alarme falso</td></tr>
+          <tr><td>xz</td><td class="igual">sem evento</td><td class="igual">sem evento</td><td class="igual">fora da janela</td></tr>
+        </tbody>
+      </table>
+      <figcaption>12 arquivos de texto de 2 MiB, um processo por compressor, regra atual com janela de 10 s e 10 arquivos.</figcaption>
     </figure>
   </div>
-  <footer class="folio"><span>Calibração, 40 execuções do detector real</span><span class="measured">3</span></footer>
+  <footer class="folio"><span>Limitações</span><span class="measured">7</span></footer>
 </section>
 
-<section class="slide" aria-label="A regra de decisão antes e depois">
-  <h2>A regra de decisão, antes e depois</h2>
-  <table class="diff">
-    <thead><tr><th class="sinal"></th><th>Critério</th><th>Agosto</th><th>Agora</th></tr></thead>
-    <tbody>
-      <tr><td class="sinal menos">±</td><td>Entropia</td><td><s>H ≥ 7,8</s></td><td>H corrigida ≥ 7,8</td></tr>
-      <tr><td class="sinal mais">+</td><td>Qui-quadrado</td><td class="igual">não havia</td><td class="measured">≤ 500</td></tr>
-      <tr><td class="sinal mais">+</td><td>Janela de tempo</td><td class="igual">não havia</td><td class="measured">10 s</td></tr>
-      <tr><td class="sinal"></td><td>Volume escrito</td><td class="igual measured">≥ 64 KiB</td><td class="igual measured">≥ 64 KiB</td></tr>
-      <tr><td class="sinal"></td><td>Arquivos distintos</td><td class="igual measured">≥ 10</td><td class="igual measured">≥ 10</td></tr>
-    </tbody>
-  </table>
-  <p>A correção de Miller-Madow tira o viés de amostra pequena. Dado aleatório com 512 bytes dava 7,59 e passava despercebido.</p>
-  <footer class="folio"><span>Critérios de decisão</span><span class="measured">4</span></footer>
-</section>
-
-<section class="slide" aria-label="Três defeitos no kernel">
-  <h2>Três defeitos corrigidos no kernel</h2>
-  <ul class="defeitos">
-    <li><p><strong>Pipe e socket contavam como arquivo</strong>Tráfego TLS e SSH batia os três critérios.</p><p class="agora">Só arquivo regular entra na conta.</p></li>
-    <li><p><strong>O mapa de processos nunca esvaziava</strong>Depois de 1024 processos o detector ficava cego.</p><p class="agora">Mapa LRU, limpo quando o processo sai.</p></li>
-    <li><p><strong>Não havia janela de tempo</strong>Um processo comum juntava 10 arquivos em horas.</p><p class="agora">Os critérios valem dentro de 10 s.</p></li>
-  </ul>
-  <footer class="folio"><span>src/bpf/ransomware_detect.bpf.c</span><span class="measured">5</span></footer>
-</section>
-
-<section class="slide" aria-label="Duas medições de agosto estavam erradas">
-  <h2>Duas medições de agosto estavam erradas</h2>
-  <div class="duas">
-    <div class="leitura">
-      <span class="leitura__antes">7,93</span>
-      <span class="leitura__agora leitura__agora--s">8,00</span>
-      <p>Entropia do simulador. O log dele ia para um arquivo regular, e esse texto entrava no próprio histograma.</p>
-    </div>
-    <div class="leitura">
-      <span class="leitura__antes">libaio</span>
-      <span class="leitura__agora leitura__agora--s">psync</span>
-      <p>O fio usava io_submit, que não passa por vfs_write. O detector nem via a carga medida.</p>
+<section class="slide" aria-label="Regra de decisão">
+  <header class="cabeca">
+    <h2>Regra de decisão</h2>
+    <p>Critérios usados em agosto e critérios atuais. O processo é morto quando todos são atendidos ao mesmo tempo.</p>
+  </header>
+  <div class="colunas">
+    <table class="tabela">
+      <thead><tr><th>Critério</th><th>Agosto</th><th>Agora</th></tr></thead>
+      <tbody>
+        <tr><td>Entropia</td><td><s>≥ 7,8</s></td><td>corrigida, ≥ 7,8</td></tr>
+        <tr><td>Qui-quadrado</td><td class="igual">não havia</td><td class="measured">≤ 500</td></tr>
+        <tr><td>Janela de tempo</td><td class="igual">não havia</td><td class="measured">10 s</td></tr>
+        <tr><td>Volume escrito</td><td class="measured">≥ 64 KiB</td><td class="measured">≥ 64 KiB</td></tr>
+        <tr><td>Arquivos distintos</td><td class="measured">≥ 10</td><td class="measured">≥ 10</td></tr>
+      </tbody>
+    </table>
+    <div class="texto">
+      <p>A correção de Miller-Madow soma à entropia um termo que depende de quantos valores diferentes apareceram e de quantos bytes foram amostrados. Com poucos bytes, alguns valores não aparecem e a entropia sai menor do que é: dado aleatório com 512 bytes dava 7,59 e não passava do limiar.</p>
+      <div class="analogia"><p><b>Analogia.</b> Numa pesquisa eleitoral com 20 entrevistados, um candidato com 2% das intenções de voto pode não aparecer nenhuma vez. A correção estima o que ficou de fora pelo tamanho da amostra.</p></div>
+      <p>O corte de 500 no qui-quadrado fica entre o maior valor de cifra, 361, e o menor valor benigno, 731.</p>
     </div>
   </div>
-  <footer class="folio"><span>Os 8 alertas antigos ficaram em bench/results/legado</span><span class="measured">6</span></footer>
+  <footer class="folio"><span>Miller, 1955</span><span class="measured">8</span></footer>
+</section>
+
+<section class="slide" aria-label="Correções no programa eBPF">
+  <header class="cabeca">
+    <h2>Correções no programa eBPF</h2>
+    <p>Três defeitos encontrados na revisão do código que roda no kernel.</p>
+  </header>
+  <table class="tabela">
+    <thead><tr><th>Defeito</th><th>Efeito</th><th>Correção</th></tr></thead>
+    <tbody>
+      <tr><td>Pipe e socket contavam como arquivo</td><td>Conexões TLS e SSH transmitem dado cifrado o tempo todo e cumpriam os critérios.</td><td>Só arquivo regular entra na conta.</td></tr>
+      <tr><td>O mapa de processos nunca liberava espaço</td><td>Com 1024 posições e nenhuma apagada na saída do processo, o detector deixava de observar processos novos depois de 1024 processos.</td><td>Mapa do tipo LRU, com a entrada apagada quando o processo termina.</td></tr>
+      <tr><td>Não havia janela de tempo</td><td>Um processo comum podia juntar 10 arquivos ao longo de horas e ser tratado como cifragem em massa.</td><td>Os critérios valem dentro de 10 segundos.</td></tr>
+    </tbody>
+  </table>
+  <div class="colunas colunas--meio">
+    <div class="analogia"><p><b>Analogia para o mapa.</b> Um estacionamento de 1024 vagas em que nenhum carro sai. Depois de lotado, ninguém mais entra.</p></div>
+    <figure>
+<pre class="print"><span class="destaque">if((modo &amp; S_IFMT) != S_IFREG)</span>
+    return 0;</pre>
+      <figcaption>Filtro de arquivo regular, <code>src/bpf/ransomware_detect.bpf.c</code>, linha 144.</figcaption>
+    </figure>
+  </div>
+  <footer class="folio"><span>Kernel</span><span class="measured">9</span></footer>
+</section>
+
+<section class="slide" aria-label="Erros de medição corrigidos">
+  <header class="cabeca">
+    <h2>Erros de medição corrigidos</h2>
+    <p>Dois problemas nos testes de agosto, que afetavam os números apresentados naquela ocasião.</p>
+  </header>
+  <div class="colunas colunas--meio">
+    <div class="texto">
+      <h3>Entropia do simulador abaixo do esperado</h3>
+      <p>Os 8 alertas de agosto mostravam entre 7,92 e 7,93 bits por byte. O simulador gravava o próprio log num arquivo comum, e as linhas de texto desse log entravam no histograma do mesmo processo. Com o log desviado, o valor passou a 7,9996.</p>
+    </div>
+    <div class="texto">
+      <h3>Carga do benchmark invisível ao detector</h3>
+      <p>O fio estava configurado com libaio, que envia as escritas por <code>io_submit</code>. Esse caminho não passa por <code>vfs_write</code>, e o detector não via a carga que estava sendo medida. Troquei para psync.</p>
+      <div class="analogia"><p><b>Analogia.</b> Era como medir o movimento de uma loja com a câmera da porta da frente enquanto a mercadoria entrava pela garagem.</p></div>
+    </div>
+  </div>
+  <footer class="folio"><span>Os 8 alertas antigos estão em bench/results/legado</span><span class="measured">10</span></footer>
 </section>
 
 <section class="slide" aria-label="Tempo até o bloqueio">
-  <h2>O kill chega no décimo arquivo</h2>
-  <div class="duas">
-    <div class="leitura">
-      <span class="leitura__agora">10</span>
-      <p>arquivos perdidos de 300, nas 15 execuções. É o critério de arquivos que fixa a perda, não a latência.</p>
+  <header class="cabeca">
+    <h2>Tempo até o bloqueio</h2>
+    <p>Simulador cifrando 300 arquivos, com o detector em modo de bloqueio, 5 execuções por tamanho de arquivo.</p>
+  </header>
+  <div class="colunas colunas--print">
+    <div class="texto">
+      <p>Em todas as 15 execuções o processo foi morto no décimo arquivo, que é o mínimo do critério. A perda é definida por esse número e não pela velocidade do detector: entre o kernel e o agente o evento leva cerca de 50 µs.</p>
+      <div class="analogia"><p><b>Analogia.</b> Um alarme regulado para tocar quando há fumaça em 10 cômodos toca sempre no décimo. Baixar para 5 faz tocar antes, mas também com a fumaça da cozinha.</p></div>
+    </div>
+    <figure>
+<pre class="print"><span class="nota">$ xxd -l 16 benigno_0000.txt   # antes</span>
+00000000: 4c6f 7265 6d20 6970 7375 6d20 646f 6c6f  Lorem ipsum dolo
+<span class="nota">$ xxd -l 16 benigno_0000.txt   # depois do simulador</span>
+00000000: 38ed 3400 5cdd 6ca2 e4bc 21a6 6c21 9a31  8.4.\.l...!.l!.1
+
+<span class="nota">$ sudo ./ransomware_detect --kill</span>
+[ALERTA] PID=76257 PROC=sim_encrypt H=7.9996 bits/byte
+         QUI2=258.1 BYTES=655360 ARQUIVOS=10
+<span class="destaque">[BLOQUEIO] SIGKILL enviado para PID 76257</span></pre>
+      <figcaption>Saídas reais. O hexdump é de um arquivo antes e depois do <code>sim_encrypt</code>, e o alerta é do log <code>bench/results/kill/rapido_64k_0ms_1.log</code>, com a linha quebrada em duas para caber.</figcaption>
+      <table class="tabela">
+        <thead><tr><th>Tamanho de cada arquivo</th><th class="num">Até o SIGKILL</th></tr></thead>
+        <tbody>
+          <tr><td>16 KiB</td><td class="num">13,4 ms</td></tr>
+          <tr><td>64 KiB</td><td class="num">17,6 ms</td></tr>
+          <tr><td>256 KiB</td><td class="num">31,6 ms</td></tr>
+        </tbody>
+      </table>
+    </figure>
+  </div>
+  <footer class="folio"><span>bench/results/latencia_kill.csv</span><span class="measured">11</span></footer>
+</section>
+
+<section class="slide" aria-label="Janela de tempo e ransomware lento">
+  <header class="cabeca">
+    <h2>Janela de tempo e ransomware lento</h2>
+    <p>O que acontece quando o simulador espera entre um arquivo e outro.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>A janela de 10 segundos limita o tempo que o detector espera para juntar os 10 arquivos. Um ransomware que cifra mais devagar que um arquivo por segundo não chega a cumprir o critério.</p>
+      <div class="analogia"><p><b>Analogia.</b> O radar de velocidade média mede o tempo entre dois pontos da estrada. Quem passa devagar o bastante não é multado, mesmo que tenha corrido em algum trecho.</p></div>
+      <p>Aumentar a janela pega o ransomware lento, mas também junta mais escrita legítima. Essa troca vai para a monografia como parâmetro a ser discutido.</p>
     </div>
     <table class="tabela">
-      <thead><tr><th>Tamanho de cada arquivo</th><th>Até o SIGKILL</th></tr></thead>
+      <thead><tr><th>Intervalo entre arquivos</th><th>Bloqueado</th><th>Arquivos perdidos</th></tr></thead>
       <tbody>
-        <tr><td>16 KiB</td><td class="num">13,4 ms</td></tr>
-        <tr><td>64 KiB</td><td class="num">17,6 ms</td></tr>
-        <tr><td>256 KiB</td><td class="num">31,6 ms</td></tr>
-        <tr><td>Do kernel ao agente</td><td class="num">≈ 50 µs</td></tr>
+        <tr><td>Nenhum</td><td class="bom">15 de 15</td><td class="num">10 de 300</td></tr>
+        <tr><td>500 ms</td><td class="bom">3 de 3, aos 4,6 s</td><td class="num">10 de 40</td></tr>
+        <tr><td>1500 ms</td><td class="ruim">0 de 3</td><td class="num">40 de 40</td></tr>
       </tbody>
     </table>
   </div>
-  <footer class="folio"><span><span class="measured">sim_encrypt</span> com <span class="measured">--kill</span>, 5 execuções por tamanho</span><span class="measured">7</span></footer>
+  <footer class="folio"><span>Limitações</span><span class="measured">12</span></footer>
 </section>
 
-<section class="slide" aria-label="Ransomware lento">
-  <h2>Ransomware lento passa pela janela</h2>
-  <div class="trilha">
-    <div class="trilha__linha"><span class="trilha__nome">Sem atraso</span><span class="trilha__nota">Bloqueado em 15 de 15, 10 arquivos perdidos</span><span class="estado estado--ok">Pego</span></div>
-    <div class="trilha__linha"><span class="trilha__nome">500 ms por arquivo</span><span class="trilha__nota">Bloqueado em 3 de 3, aos 4,6 s</span><span class="estado estado--ok">Pego</span></div>
-    <div class="trilha__linha"><span class="trilha__nome">1500 ms por arquivo</span><span class="trilha__nota">Nenhum bloqueio, 40 de 40 perdidos</span><span class="estado estado--falha">Escapa</span></div>
-  </div>
-  <p>Uma janela maior pega o lento, mas junta mais escrita benigna. Essa troca entra na monografia.</p>
-  <footer class="folio"><span>Janela de 10 s, 10 arquivos</span><span class="measured">8</span></footer>
-</section>
-
-<section class="slide" aria-label="Custo do detector">
-  <h2>Cada escrita custa cerca de 1 µs a mais</h2>
-  <figure>
-    <svg class="grafico" viewBox="0 0 770 216" role="img" aria-label="Perda de vazão por carga">
-<line class="grade" x1="180.0" y1="0" x2="180.0" y2="180"/>
-<text class="eixo" x="180.0" y="200" text-anchor="middle">0%</text>
-<line class="grade" x1="284.0" y1="0" x2="284.0" y2="180"/>
-<text class="eixo" x="284.0" y="200" text-anchor="middle">10%</text>
-<line class="grade" x1="388.0" y1="0" x2="388.0" y2="180"/>
-<text class="eixo" x="388.0" y="200" text-anchor="middle">20%</text>
-<line class="grade" x1="492.0" y1="0" x2="492.0" y2="180"/>
-<text class="eixo" x="492.0" y="200" text-anchor="middle">30%</text>
-<line class="grade" x1="596.0" y1="0" x2="596.0" y2="180"/>
-<text class="eixo" x="596.0" y="200" text-anchor="middle">40%</text>
-<line class="grade" x1="700.0" y1="0" x2="700.0" y2="180"/>
-<text class="eixo" x="700.0" y="200" text-anchor="middle">50%</text>
-<text class="rotulo" x="0" y="27">sequencial, 64 KiB</text>
-<rect class="marca marca--argumento" x="180" y="11" width="87.4" height="22" rx="2"/>
-<text class="valor" x="277.4" y="27">8,4%</text>
-<text class="rotulo" x="0" y="71">200 arquivos de 64 KiB</text>
-<rect class="marca marca--argumento" x="180" y="55" width="173.7" height="22" rx="2"/>
-<text class="valor" x="363.7" y="71">16,7%</text>
-<text class="rotulo" x="0" y="115">aleatória, 4 KiB</text>
-<rect class="marca marca--argumento" x="180" y="99" width="422.2" height="22" rx="2"/>
-<text class="valor" x="612.2" y="115">40,6%</text>
-<text class="rotulo" x="0" y="159">sequencial, 4 KiB</text>
-<rect class="marca marca--argumento" x="180" y="143" width="473.2" height="22" rx="2"/>
-<text class="valor" x="663.2" y="159">45,5%</text>
+<section class="slide" aria-label="Custo de desempenho">
+  <header class="cabeca">
+    <h2>Custo de desempenho</h2>
+    <p>Perda de vazão de escrita com o detector ativo, medida com fio em quatro cargas, 5 repetições cada.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>A primeira medição, em disco, variou de 128 a 352 MB/s dentro do mesmo modo, e o custo do detector não aparecia no meio desse ruído. Repeti em <code>/dev/shm</code>, que fica na memória, onde sobra só o custo de CPU. É o pior caso.</p>
+      <p>Cada chamada do kprobe custa entre 1,03 e 1,40 µs, quase o mesmo valor em todas as cargas.</p>
+      <div class="analogia"><p><b>Analogia.</b> É um pedágio de valor fixo. Numa escrita de 64 KiB, que leva cerca de 16 µs, quase não pesa. Numa de 4 KiB, que leva cerca de 2 µs, pesa bastante.</p></div>
+    </div>
+    <figure class="grafico-grande">
+      <svg class="grafico" viewBox="0 0 660 300" role="img" aria-label="Perda de vazão por carga">
+<line class="grade" x1="270.0" y1="0" x2="270.0" y2="260"/>
+<text class="eixo" x="270.0" y="280" text-anchor="middle">0%</text>
+<line class="grade" x1="420.0" y1="0" x2="420.0" y2="260"/>
+<text class="eixo" x="420.0" y="280" text-anchor="middle">25%</text>
+<line class="grade" x1="570.0" y1="0" x2="570.0" y2="260"/>
+<text class="eixo" x="570.0" y="280" text-anchor="middle">50%</text>
+<text class="rotulo" x="0" y="37">sequencial, 64 KiB</text>
+<rect class="marca marca--argumento" x="270" y="17" width="50.4" height="30" rx="2"/>
+<text class="valor" x="330.4" y="37">8,4%</text>
+<text class="rotulo" x="0" y="101">200 arquivos, 64 KiB</text>
+<rect class="marca marca--argumento" x="270" y="81" width="100.2" height="30" rx="2"/>
+<text class="valor" x="380.2" y="101">16,7%</text>
+<text class="rotulo" x="0" y="165">aleatória, 4 KiB</text>
+<rect class="marca marca--argumento" x="270" y="145" width="243.6" height="30" rx="2"/>
+<text class="valor" x="523.6" y="165">40,6%</text>
+<text class="rotulo" x="0" y="229">sequencial, 4 KiB</text>
+<rect class="marca marca--argumento" x="270" y="209" width="273.0" height="30" rx="2"/>
+<text class="valor" x="553.0" y="229">45,5%</text>
 </svg>
-    <figcaption>Perda de vazão com o detector, medida em memória, que é o pior caso. Em disco, o custo some no tempo do dispositivo.</figcaption>
-  </figure>
-  <footer class="folio"><span>fio em /dev/shm, 5 repetições, 1,03 a 1,40 µs por chamada</span><span class="measured">9</span></footer>
-</section>
-
-<section class="slide" aria-label="Qui-quadrado no kernel">
-  <h2>O qui-quadrado desceu para o kernel</h2>
-  <div class="duas">
-    <div class="leitura">
-      <span class="leitura__antes">8,2 s</span>
-      <span class="leitura__agora leitura__agora--s">0,016 s</span>
-      <p>CPU do agente em 20 s de escrita em 200 arquivos. O kernel descartou 360 mil eventos e não enviou nenhum.</p>
-    </div>
-    <div class="leitura">
-      <p>Sem ponto flutuante no eBPF, a conta vira só inteiros:</p>
-      <span class="formula">256 Σc² ≤ n (n + 500)</span>
-      <p>Mesma decisão da conta em double nos 3.000 histogramas testados.</p>
-    </div>
+      <figcaption>Vazão perdida em memória. Em disco a diferença ficou dentro da variação entre repetições.</figcaption>
+    </figure>
   </div>
-  <footer class="folio"><span>Contador percpu de enviados e descartados</span><span class="measured">10</span></footer>
+  <footer class="folio"><span>bench/results/bench.md</span><span class="measured">13</span></footer>
 </section>
 
-<section class="slide" aria-label="O que falta">
-  <h2>O que falta até a banca</h2>
-  <div class="trilha trilha--datas">
-    <div class="trilha__linha"><span class="trilha__quando">agora</span><span class="trilha__nota">Simular famílias reais: cifra intermitente, só o início do arquivo, nota de resgate, mmap, várias threads</span></div>
-    <div class="trilha__linha"><span class="trilha__quando">com aval</span><span class="trilha__nota">Amostras reais em VM isolada, sem rede</span></div>
-    <div class="trilha__linha"><span class="trilha__quando">08/01/2027</span><span class="trilha__nota">Postagem da monografia</span></div>
-    <div class="trilha__linha"><span class="trilha__quando">18 a 21/01</span><span class="trilha__nota">Banca examinadora</span></div>
+<section class="slide" aria-label="Filtro de qui-quadrado no kernel">
+  <header class="cabeca">
+    <h2>Filtro de qui-quadrado no kernel</h2>
+    <p>Mudança feita depois da medição de custo, para tirar do agente o trabalho com eventos que nunca seriam alarme.</p>
+  </header>
+  <div class="colunas">
+    <div class="texto">
+      <p>Na carga de 200 arquivos, o fio mandava ao agente cerca de 18 mil eventos por segundo, nenhum com cara de cifra, e o agente gastava 41% de um núcleo só para descartá-los. Passei o cálculo do qui-quadrado para o kernel. Como o eBPF não tem ponto flutuante, a comparação foi reescrita só com inteiros.</p>
+      <p>Com o filtro, o kernel descartou entre 320 mil e 390 mil eventos por execução e não enviou nenhum. A CPU do agente caiu de 8,2 s para 0,016 s em cada execução de 20 s.</p>
+      <div class="analogia"><p><b>Analogia.</b> É a triagem do pronto-socorro: só passa para o médico quem tem sintoma.</p></div>
+    </div>
+    <figure>
+<pre class="print"><span class="nota">// qui2 &lt;= max vira 256 * soma dos quadrados &lt;= n * (n + max)</span>
+for(int i = 0; i &lt; 256; i++) {
+    __u64 c = st-&gt;histograma[i];
+    n += c;
+    soma_quad += c * c;
+}
+<span class="destaque">return 256 * soma_quad &lt;= n * (n + cfg_max_qui2);</span>
+
+<span class="nota">$ sudo ./ransomware_detect   # carga de 200 arquivos</span>
+[*] encerrando detector, eventos enviados=0
+    descartados no kernel=389394</pre>
+      <figcaption>Trecho de <code>parece_uniforme</code>, linhas 76 a 94 do programa eBPF, e o fim de um log real da medição. Em 3.000 histogramas de teste, a conta inteira deu a mesma decisão da conta em ponto flutuante.</figcaption>
+    </figure>
   </div>
-  <footer class="folio"><span>Cronograma reformulado depois da greve</span><span class="measured">11</span></footer>
+  <footer class="folio"><span>Kernel</span><span class="measured">14</span></footer>
 </section>
 
-<section class="slide fecho" aria-label="Perguntas">
-  <h1>Perguntas?</h1>
-  <p class="lead">Código, resultados e scripts dos experimentos em <a href="https://github.com/Kauajr13/ebpf-ransomware-detector">github.com/Kauajr13/ebpf-ransomware-detector</a></p>
-  <footer class="folio"><span>Kauã Junior Silva Soares</span><span class="measured">12</span></footer>
+<section class="slide" aria-label="Próximas etapas">
+  <header class="cabeca">
+    <h2>Próximas etapas</h2>
+    <p>O que falta até a postagem da monografia, em 8 de janeiro de 2027, e a banca, de 18 a 21 de janeiro.</p>
+  </header>
+  <table class="tabela">
+    <thead><tr><th>Etapa</th><th>Objetivo</th></tr></thead>
+    <tbody>
+      <tr><td>Falso positivo de compressão</td><td>Separar o processo que sobrescreve os arquivos que leu do processo que cria arquivos novos, e repetir a calibração com arquivos comprimidos grandes.</td></tr>
+      <tr><td>Variantes de famílias reais</td><td>Simular comportamentos descritos em relatórios públicos: cifragem intermitente, cifragem só do início do arquivo, nota de resgate entre os arquivos, escrita por mmap e várias threads.</td></tr>
+      <tr><td>Amostras reais</td><td>Executar em VM isolada, sem rede e com snapshot, depois do aval do orientador.</td></tr>
+      <tr><td>Monografia</td><td>Resultados, limitações e a discussão sobre janela de tempo e número mínimo de arquivos.</td></tr>
+    </tbody>
+  </table>
+  <footer class="folio"><span>Cronograma reformulado depois da greve</span><span class="measured">15</span></footer>
+</section>
+
+<section class="slide fim" aria-label="Referências">
+  <header class="cabeca">
+    <h2>Referências e perguntas</h2>
+    <p>Código, scripts dos experimentos e resultados: <a href="https://github.com/Kauajr13/ebpf-ransomware-detector">github.com/Kauajr13/ebpf-ransomware-detector</a></p>
+  </header>
+  <ul class="refs">
+    <li>CISA; FBI. <i>ESXiArgs Ransomware Virtual Machine Recovery Guidance</i>. Alerta AA23-039A, 8 fev. 2023. Disponível em: <a href="https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-039a">cisa.gov/news-events/cybersecurity-advisories/aa23-039a</a>.</li>
+    <li>CONTINELLA, A. et al. ShieldFS: a self-healing, ransomware-aware filesystem. In: Annual Computer Security Applications Conference, 32., 2016. p. 336-347.</li>
+    <li>SCAIFE, N. et al. CryptoLock (and drop it): stopping ransomware attacks on user data. In: IEEE International Conference on Distributed Computing Systems, 36., 2016. p. 303-312.</li>
+    <li>MILLER, G. A. Note on the bias of information estimates. In: QUASTLER, H. (ed.). <i>Information theory in psychology: problems and methods</i>. Glencoe: Free Press, 1955. p. 95-100.</li>
+    <li>GREGG, B. <i>BPF performance tools: Linux system and application observability</i>. Boston: Addison-Wesley, 2019.</li>
+    <li>NAKRYIKO, A. BPF CO-RE (compile once, run everywhere). 2020. Disponível em: <a href="https://nakryiko.com/posts/bpf-core-reference-guide/">nakryiko.com/posts/bpf-core-reference-guide</a>.</li>
+    <li>Foto usada no histograma do slide 5: <i>Clouds</i>, de Tibor Mokanszki, papel de parede do Ubuntu.</li>
+  </ul>
+  <footer class="folio"><span>Kauã Junior Silva Soares</span><span class="measured">16</span></footer>
 </section>
 
 </main>
@@ -262,7 +455,7 @@
     atual = Math.max(0, Math.min(slides.length - 1, i));
     slides.forEach((s, k) => s.classList.toggle('atual', k === atual));
   };
-  // o modo de apresentação liga com a tecla p, e os slides empilhados continuam valendo pra leitura e impressão
+  // a tecla p liga o modo de apresentação; sem ele os slides ficam empilhados pra leitura e impressão
   addEventListener('keydown', (e) => {
     if (e.key === 'p') { document.body.classList.toggle('apresentando'); ajustar(); mostrar(atual); return; }
     if (!document.body.classList.contains('apresentando')) return;
