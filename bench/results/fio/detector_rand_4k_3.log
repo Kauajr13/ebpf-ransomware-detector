@@ -1,4 +1,4 @@
-[*] detector ativo, limiar=7.8 bits/byte, qui2 max=500, minimo=65536 bytes, janela=10 s, modo monitor
+[*] detector ativo, limiar=7.8 bits/byte, qui2 max=500, minimo=65536 bytes, janela=10 s, modo monitor, corte de qui2 no kernel
 [*] ctrl+c para encerrar
 
-[*] encerrando detector
+[*] encerrando detector, eventos enviados=0 descartados no kernel=2
