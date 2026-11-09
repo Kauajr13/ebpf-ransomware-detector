@@ -9,6 +9,7 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export LC_ALL=C.UTF-8
 
 [[ $EUID -ne 0 ]] && { echo "ERRO: execute com sudo"; exit 1; }
 DONO="${SUDO_USER:-root}"

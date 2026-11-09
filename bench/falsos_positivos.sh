@@ -10,6 +10,8 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# ponto decimal em qualquer número que passe do shell pro python
+export LC_ALL=C.UTF-8
 RAIZ="$(pwd)"
 
 RESULTS="${RESULTS:-bench/results/fp}"

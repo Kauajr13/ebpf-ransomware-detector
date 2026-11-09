@@ -6,6 +6,9 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# em pt_BR o awk imprime 0,07 e o python recebe a vírgula como separador de
+# tupla. C.UTF-8 põe ponto decimal e mantém os acentos da saída
+export LC_ALL=C.UTF-8
 
 RESULTS="bench/results"
 DETECTOR="./ransomware_detect"
