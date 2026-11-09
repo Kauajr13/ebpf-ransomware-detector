@@ -232,11 +232,36 @@ perda e aumenta o risco de falso positivo.
 
 ### Overhead
 
-A primeira rodada, em disco, está em `bench/results/overhead_disco.csv`. A vazão
-variou de 128 a 352 MB/s dentro do mesmo modo, e o p99 de até 20 ms era o fio
-esperando o writeback. O ruído do disco engoliu o custo do detector, então só o
-custo por chamada do kprobe se aproveita: 1,4 a 1,9 µs. A fase 1 agora roda em
-`/dev/shm`, que é tmpfs, onde sobra só o custo de CPU. Refazer só ela:
+Medido em `/dev/shm`, que é tmpfs. Sem disco, sobra só o custo de CPU, então é o
+pior caso, um limite superior. São 5 repetições por carga e modo, em
+`bench/results/bench.md`:
+
+| Carga | Vazão sem | Vazão com | Perda | p99 sem → com | Custo por kprobe |
+| --- | --- | --- | --- | --- | --- |
+| escrita sequencial 64 KiB | 8,1 GB/s | 7,4 GB/s | 9% | 24,2 → 24,4 µs | 1,19 µs |
+| escrita sequencial 4 KiB | 4,3 GB/s | 2,5 GB/s | 42% | 1,9 → 4,0 µs | 1,02 µs |
+| escrita aleatória 4 KiB | 3,4 GB/s | 2,1 GB/s | 37% | 2,6 → 4,8 µs | 1,07 µs |
+| 200 arquivos de 64 KiB | 3,5 GB/s | 2,8 GB/s | 20% | 6,4 → 13,5 µs | 1,48 µs |
+
+O detector adiciona um custo fixo de cerca de 1 µs por escrita. Esse custo vem
+da cópia da amostra de 512 bytes e dos 512 incrementos no histograma. O impacto
+relativo depende do tamanho da escrita. Em memória, uma escrita de 4 KiB leva
+cerca de 2 µs, então mais 1 µs pesa 42%. Uma de 64 KiB leva cerca de 16 µs, e o
+mesmo 1 µs pesa 9%. Em disco esse 1 µs some no tempo do dispositivo. A primeira
+rodada, em disco, está em `bench/results/overhead_disco.csv`: lá a vazão variou
+de 128 a 352 MB/s dentro do mesmo modo, e o custo do detector nem apareceu no
+ruído.
+
+Na carga de muitos arquivos, o fio dispara o critério de volume e arquivos a
+cada 10 arquivos. Foram cerca de 18 mil eventos por segundo, nenhum acima do
+limiar, porque a entropia ficou em 7,3 e o qui-quadrado em cerca de 10 mil. O
+agente gastou 8,2 s de CPU em 20 s, 41% de um núcleo, quase tudo gravando e
+fazendo flush de uma linha de CSV por evento. Um processo benigno que escreve
+muitos arquivos rápido inunda o ring buffer. Calcular o qui-quadrado em inteiros
+no próprio kernel e só emitir o evento quando ele for baixo cortaria essa
+inundação na origem. Isso fica como trabalho futuro.
+
+Refazer só esta fase:
 
 ```sh
 sudo FASES=1 bash bench/run_bench.sh && python3 scripts/plot_results.py
