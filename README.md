@@ -32,9 +32,13 @@ No kernel, em `src/bpf/ransomware_detect.bpf.c`:
    esse tempo o estado do processo é zerado. Sem a janela, um processo benigno
    juntava 64 KiB em 10 arquivos ao longo de horas e acabava alertando.
 5. Quando um processo cruza os dois limiares dentro da janela, 64 KiB escritos e
-   10 arquivos distintos por padrão, o programa publica o histograma num ring
-   buffer de 256 KiB e zera os contadores daquele processo, para o mesmo PID não
-   inundar o canal.
+   10 arquivos distintos por padrão, o programa calcula o qui-quadrado do
+   histograma ali mesmo. O BPF não tem ponto flutuante, então a conta é
+   reescrita só com inteiros: `qui2 = 256·Σc²/n − n`, e `qui2 ≤ máx` vira
+   `256·Σc² ≤ n·(n + máx)`, sem divisão. Se o histograma está longe da uniforme,
+   como em gzip ou JPG, o evento é descartado e só entra num contador. Se não,
+   o histograma vai para um ring buffer de 256 KiB. Nos dois casos os contadores
+   daquele processo são zerados, para o mesmo PID não inundar o canal.
 
 No espaço de usuário, em `src/userspace/main.cpp`:
 
@@ -104,7 +108,8 @@ sudo ./ransomware_detect [opções]
 | `--window SEG` | Janela de tempo dos critérios, 0 desliga | 10 |
 | `--poll MS` | Intervalo de poll do ring buffer | 50 |
 | `--kill` | Envia SIGKILL ao processo detectado | desligado |
-| `--csv ARQUIVO` | Grava os eventos em CSV | desligado |
+| `--csv ARQUIVO` | Grava em CSV os eventos que chegam do kernel | desligado |
+| `--all-events` | Desliga o corte de qui-quadrado no kernel e manda todo evento, para calibração | desligado |
 | `--verbose` | Mostra também os eventos abaixo do limiar | desligado |
 
 O kernel guarda no máximo 32 inodes por processo, então `--files` acima disso
@@ -257,9 +262,16 @@ cada 10 arquivos. Foram cerca de 18 mil eventos por segundo, nenhum acima do
 limiar, porque a entropia ficou em 7,3 e o qui-quadrado em cerca de 10 mil. O
 agente gastou 8,2 s de CPU em 20 s, 41% de um núcleo, quase tudo gravando e
 fazendo flush de uma linha de CSV por evento. Um processo benigno que escreve
-muitos arquivos rápido inunda o ring buffer. Calcular o qui-quadrado em inteiros
-no próprio kernel e só emitir o evento quando ele for baixo cortaria essa
-inundação na origem. Isso fica como trabalho futuro.
+muitos arquivos rápido inundava o ring buffer.
+
+Por isso o qui-quadrado passou a ser calculado também no kernel, em inteiros, e
+o evento que não passa no corte nem sai de lá. A decisão final continua no
+agente, em `double`. O kernel só deixa de enviar o que já seria recusado. Em
+3.000 histogramas de teste, de dado aleatório, gzip e dado com cabeçalho fixo,
+a conta inteira e a conta em `double` deram a mesma decisão em todos, inclusive
+nos 27 que caíram entre 450 e 550. O agente imprime ao encerrar quantos eventos
+o kernel enviou e quantos descartou. A medição acima é anterior a essa mudança,
+e a fase 1 precisa rodar de novo para medir o efeito.
 
 Refazer só esta fase:
 

@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -33,6 +34,9 @@ struct Configuracao {
     int intervaloMs = 50;
     bool matarAoDetectar = false;
     bool verboso = false;
+    // desliga o corte de qui-quadrado no kernel. a calibracao precisa ver o
+    // evento benigno inteiro, senao nao tem como medir falso positivo
+    bool todosEventos = false;
     string arquivoCsv;
 };
 
@@ -114,7 +118,8 @@ void imprimirUso(const char *prog)
          << "  --window SEG        janela de tempo dos criterios, 0 desliga (padrao: 10)\n"
          << "  --poll MS           intervalo de poll em ms (padrao: 50)\n"
          << "  --kill              matar processo ao detectar\n"
-         << "  --csv ARQUIVO       gravar todos os eventos em csv, inclusive abaixo do limiar\n"
+         << "  --csv ARQUIVO       gravar em csv os eventos que chegam do kernel\n"
+         << "  --all-events        kernel manda todo evento, sem o corte de qui2, pra calibracao\n"
          << "  --verbose           log de debug\n";
 }
 
@@ -145,6 +150,8 @@ Configuracao parseArgs(int argc, char **argv)
                 cfg.arquivoCsv = argv[++i];
             else if(arg == "--verbose")
                 cfg.verboso = true;
+            else if(arg == "--all-events")
+                cfg.todosEventos = true;
             else if(arg == "--help") {
                 imprimirUso(argv[0]);
                 exit(0);
@@ -242,6 +249,24 @@ int imprimirLibbpf(enum libbpf_print_level nivel, const char *formato, va_list a
     return vfprintf(stderr, formato, args);
 }
 
+// o mapa e percpu, entao cada posicao volta com um valor por cpu e a soma e o total
+uint64_t lerContador(ransomware_detect_bpf *skel, uint32_t posicao)
+{
+    int ncpus = libbpf_num_possible_cpus();
+    if(ncpus <= 0)
+        return 0;
+
+    vector<uint64_t> valores(ncpus, 0);
+    if(bpf_map__lookup_elem(skel->maps.contadores, &posicao, sizeof(posicao),
+                            valores.data(), valores.size() * sizeof(uint64_t), 0))
+        return 0;
+
+    uint64_t total = 0;
+    for(uint64_t v : valores)
+        total += v;
+    return total;
+}
+
 void aumentarMemlock()
 {
     struct rlimit rl = { RLIM_INFINITY, RLIM_INFINITY };
@@ -278,6 +303,12 @@ int main(int argc, char **argv)
     skel->rodata->cfg_limiar_arquivos = config.limiarArquivos;
     skel->rodata->cfg_emitir_alertas = 1;
     skel->rodata->cfg_janela_ns = static_cast<uint64_t>(config.janelaSeg * 1e9);
+    // o kernel compara em inteiro, entao o corte e arredondado. a decisao final
+    // continua aqui em double, o kernel so poupa o envio do que ja nao passaria
+    uint32_t corteKernel = 0;
+    if(!config.todosEventos && config.maxQuiQuadrado > 0)
+        corteKernel = static_cast<uint32_t>(llround(config.maxQuiQuadrado));
+    skel->rodata->cfg_max_qui2 = corteKernel;
 
     if(ransomware_detect_bpf__load(skel)) {
         cerr << "erro ao carregar programa eBPF, rode com --verbose pro log do verificador\n";
@@ -308,6 +339,7 @@ int main(int argc, char **argv)
          << " bits/byte, qui2 max=" << config.maxQuiQuadrado << ", minimo=" << config.bytesMinimos << " bytes, janela="
          << config.janelaSeg << " s"
          << (config.matarAoDetectar ? ", kill ativo" : ", modo monitor")
+         << (corteKernel ? ", corte de qui2 no kernel" : ", todos os eventos")
          << "\n[*] ctrl+c para encerrar" << endl;
 
     while(rodando) {
@@ -318,7 +350,8 @@ int main(int argc, char **argv)
         }
     }
 
-    cout << "\n[*] encerrando detector\n";
+    cout << "\n[*] encerrando detector, eventos enviados=" << lerContador(skel, 0)
+         << " descartados no kernel=" << lerContador(skel, 1) << endl;
 
     ring_buffer__free(rb);
     ransomware_detect_bpf__destroy(skel);

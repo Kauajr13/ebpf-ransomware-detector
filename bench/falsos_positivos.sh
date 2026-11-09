@@ -41,7 +41,9 @@ echo "carga,classe,rep,inicio_ns,fim_ns" > "$RESULTS/cargas.csv"
 iniciar_detector() {
     [[ $DRY == 1 ]] && return 0
     local log="$1"; shift
-    "$DETECTOR" "$@" > "$log" 2>&1 &
+    # --all-events porque com o corte de qui2 no kernel o evento benigno nem
+    # chega ao agente, e é dele que sai a taxa de falso positivo
+    "$DETECTOR" --all-events "$@" > "$log" 2>&1 &
     DET_PID=$!
     for _ in $(seq 1 100); do
         grep -q "detector ativo" "$log" 2>/dev/null && return 0

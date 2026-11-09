@@ -51,6 +51,47 @@ const volatile __u64 cfg_bytes_minimos = BYTES_MINIMOS;
 const volatile __u32 cfg_limiar_arquivos = LIMIAR_ARQUIVOS;
 const volatile __u32 cfg_emitir_alertas = 1;
 const volatile __u64 cfg_janela_ns = JANELA_NS;
+// corte de qui-quadrado aplicado ja no kernel, 0 manda todo evento pro agente
+const volatile __u32 cfg_max_qui2 = 0;
+
+// posicao 0 conta eventos enviados, posicao 1 os descartados pelo qui-quadrado.
+// percpu pra nao precisar de atomico no caminho quente
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(max_entries, 2);
+    __type(key, __u32);
+    __type(value, __u64);
+} contadores SEC(".maps");
+
+static __always_inline void contar(__u32 posicao)
+{
+    __u64 *c = bpf_map_lookup_elem(&contadores, &posicao);
+    if(c)
+        (*c)++;
+}
+
+// sem ponto flutuante no bpf, entao a conta e reescrita so com inteiros.
+// qui2 = 256 vezes a soma de c ao quadrado sobre n, menos n. qui2 <= max
+// vira 256 vezes soma de c ao quadrado <= n vezes n mais max, sem divisao
+static __always_inline bool parece_uniforme(struct estat_proc *st)
+{
+    __u64 n = 0;
+    __u64 soma_quad = 0;
+
+    #pragma clang loop unroll(disable)
+    for(int i = 0; i < 256; i++) {
+        __u64 c = st->histograma[i];
+        n += c;
+        soma_quad += c * c;
+    }
+
+    // a partir de 2 elevado a 27 amostras o lado esquerdo pode estourar 64
+    // bits. nesse caso deixa passar e o agente decide em double
+    if(n == 0 || n >= (1ULL << 27))
+        return true;
+
+    return 256 * soma_quad <= n * (n + cfg_max_qui2);
+}
 
 static __always_inline struct estat_proc *pegar_ou_criar(__u32 tgid, __u64 agora)
 {
@@ -175,9 +216,19 @@ int BPF_KPROBE(kprobe_vfs_write, struct file *file, const char __user *buf,
     if(st->total_bytes < cfg_bytes_minimos || st->n_arquivos < cfg_limiar_arquivos)
         return 0;
 
+    // gzip e jpg passam dos criterios de volume e arquivos mas ficam longe da
+    // uniforme. descartar aqui evita copiar 1 KiB por evento pro ring buffer,
+    // um processo escrevendo muito arquivo rapido mandava 18 mil por segundo
+    if(cfg_max_qui2 && !parece_uniforme(st)) {
+        contar(1);
+        zerar_estat(st, agora);
+        return 0;
+    }
+
     struct evento_alerta *ev = bpf_ringbuf_reserve(&ring_alertas, sizeof(*ev), 0);
     if(!ev)
         return 0;
+    contar(0);
 
     ev->pid = (__u32)pid_tgid;
     ev->tgid = tgid;
