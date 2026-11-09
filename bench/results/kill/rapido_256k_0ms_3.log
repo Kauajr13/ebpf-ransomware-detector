@@ -1,0 +1,6 @@
+[*] detector ativo, limiar=7.8 bits/byte, qui2 max=325, minimo=65536 bytes, janela=10 s, kill ativo
+[*] ctrl+c para encerrar
+[ALERTA] PID=76375 PROC=sim_encrypt H=7.9993 bits/byte QUI2=269.2 BYTES=2424832 ARQUIVOS=10 TEMPO=39.7 ms
+[BLOQUEIO] SIGKILL enviado para PID 76375
+
+[*] encerrando detector

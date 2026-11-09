@@ -1,0 +1,2 @@
+pid,proc,entropia,entropia_mm,qui2,acima_limiar,total_bytes,amostras,n_arquivos,ts_inicio_ns,ts_evento_ns,ts_user_ns,ts_kill_ns,tempo_ms
+76280,sim_encrypt,7.967561,8.003487,225.70,1,655360,5120,10,56933596490877,56933612983782,56933613023732,56933613098499,24.737

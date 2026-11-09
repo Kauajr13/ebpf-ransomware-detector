@@ -1,0 +1,10 @@
+[*] detector ativo, limiar=7.8 bits/byte, qui2 max=325, minimo=65536 bytes, janela=10 s, modo monitor
+[*] ctrl+c para encerrar
+[ALERTA] PID=79212 PROC=sim_encrypt H=8.0009 bits/byte QUI2=231.9 BYTES=2424832 ARQUIVOS=10 TEMPO=106.5 ms
+[ALERTA] PID=79212 PROC=sim_encrypt H=7.9983 bits/byte QUI2=299.6 BYTES=2359296 ARQUIVOS=10 TEMPO=136.6 ms
+[ALERTA] PID=79212 PROC=sim_encrypt H=7.9994 bits/byte QUI2=274.0 BYTES=2359296 ARQUIVOS=10 TEMPO=169.2 ms
+[ALERTA] PID=79212 PROC=sim_encrypt H=8.0002 bits/byte QUI2=249.8 BYTES=2359296 ARQUIVOS=10 TEMPO=200.0 ms
+[ALERTA] PID=79212 PROC=sim_encrypt H=8.0012 bits/byte QUI2=224.6 BYTES=2359296 ARQUIVOS=10 TEMPO=229.5 ms
+[ALERTA] PID=79212 PROC=sim_encrypt H=8.0013 bits/byte QUI2=221.5 BYTES=2359296 ARQUIVOS=10 TEMPO=259.0 ms
+
+[*] encerrando detector

@@ -1,0 +1,4 @@
+[*] detector ativo, limiar=7.8 bits/byte, qui2 max=325, minimo=65536 bytes, janela=10 s, kill ativo
+[*] ctrl+c para encerrar
+
+[*] encerrando detector

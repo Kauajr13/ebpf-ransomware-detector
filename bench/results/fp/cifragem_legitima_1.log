@@ -1,0 +1,7 @@
+[*] detector ativo, limiar=7.8 bits/byte, qui2 max=325, minimo=65536 bytes, janela=10 s, modo monitor
+[*] ctrl+c para encerrar
+[ALERTA] PID=78880 PROC=python3 H=7.9977 bits/byte QUI2=277.1 BYTES=231824 ARQUIVOS=10 TEMPO=508.4 ms
+[ALERTA] PID=78880 PROC=python3 H=7.9980 bits/byte QUI2=280.3 BYTES=336240 ARQUIVOS=10 TEMPO=854.7 ms
+[ALERTA] PID=78880 PROC=python3 H=7.9921 bits/byte QUI2=323.4 BYTES=218579 ARQUIVOS=10 TEMPO=1547.7 ms
+
+[*] encerrando detector
