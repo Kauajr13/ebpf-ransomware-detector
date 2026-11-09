@@ -1,0 +1,155 @@
+/* Hallmark · shape: slide deck, one idea per slide · genre: modern-minimal · theme: Console (deal 3/3, seed slides-segunda-apresentacao-tcc-6854·1b9b0742·2026-11-09·r0) · job: attend · draw: none, a deck has no draw
+ * hero: stage, the head beside a reading · nav: none, arrow keys · footer: running folio · imagery: none, charts of real data · signature: the struck reading, 6 of 40 false alarms becoming 0 of 40 · console: graphite
+ * axes: dark/grotesk-sans/chromatic-amber · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V4 · weakest: P, a progress report argues little by nature; every slide leads with a before and after so each one makes a claim */
+/* Hallmark · dismissed 58 · a deck of 12 slides, each slide its own screen at 1280 by 720, every slide counted under 80 words */
+@import url("./tokens.css");
+@import url("./base.css");
+
+:root {
+  --slide-w: 1280px;
+  --slide-h: 720px;
+  --slide-display: 5rem;
+  --slide-section: 3.25rem;
+  --slide-body: 1.5rem;
+  --slide-label: 1.125rem;
+  --slide-reading: 8rem;
+  --slide-reading-s: 4.25rem;
+}
+
+body { background: var(--color-paper-3); }
+
+.deck { display: grid; gap: var(--space-xl); justify-content: center; padding-block: var(--space-xl); }
+
+.slide {
+  position: relative;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  padding: var(--space-2xl) var(--space-2xl) var(--space-3xl);
+  background: var(--color-paper);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+/* o título fica no topo e o resto centra no espaço até o rodapé, senão
+   sobra um terço vazio embaixo nos slides de uma tabela só */
+.slide > h2 + * { margin-top: auto; }
+.slide:not(.fecho) > :nth-last-child(2) { margin-bottom: auto; }
+
+.slide h1 { font-size: var(--slide-display); max-width: 14ch; line-height: 1.03; }
+.slide h2 { font-size: var(--slide-section); max-width: 26ch; }
+.slide p, .slide li, .slide dd, .slide td { font-size: var(--slide-body); color: var(--color-muted); }
+.slide .lead { font-size: var(--slide-body); color: var(--color-ink-2); max-width: 40ch; }
+
+.folio {
+  position: absolute;
+  inset-inline: var(--space-2xl);
+  bottom: var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--slide-label);
+  color: var(--color-muted);
+  border-top: var(--rule-hair) solid var(--color-rule);
+  padding-top: var(--space-sm);
+}
+
+.measured { font-family: var(--font-outlier); font-variant-numeric: tabular-nums slashed-zero; }
+
+/* capa */
+.capa { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-content: center; column-gap: var(--space-xl); }
+.capa > :nth-last-child(2) { margin-bottom: 0; }
+.capa__texto { display: grid; gap: var(--space-lg); align-content: center; }
+.capa dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2xs) var(--space-md); margin: var(--space-md) 0 0; }
+.capa dt, .capa dd { margin: 0; font-size: var(--slide-label); }
+.capa dt { color: var(--color-muted); }
+.capa dd { color: var(--color-ink-2); }
+
+/* leitura, o valor antigo riscado sobre o novo */
+.leitura { display: grid; gap: var(--space-sm); align-content: center; padding: var(--space-xl); background: var(--color-paper-2); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); }
+.leitura__antes { font-family: var(--font-outlier); font-size: var(--slide-reading-s); color: var(--color-bad); text-decoration: line-through; text-decoration-thickness: 2px; line-height: 1; }
+.leitura__agora { font-family: var(--font-outlier); font-size: var(--slide-reading); color: var(--color-ink); letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums slashed-zero; }
+.leitura__agora--s { font-size: var(--slide-reading-s); }
+.leitura p { font-size: var(--slide-label); color: var(--color-ink-2); max-width: 32ch; }
+.leitura .quem { color: var(--color-accent); }
+
+.duas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-xl); }
+/* colunas na proporção da largura de cada svg, senão o da direita, mais
+   estreito, escala para cima e estoura a altura do slide */
+.duas--graficos { grid-template-columns: minmax(0, 456fr) minmax(0, 314fr); align-items: start; }
+
+/* trilha, uma linha por item com o estado ao lado */
+.trilha { display: grid; border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); overflow: hidden; }
+.trilha__linha { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(0, 2fr); gap: var(--space-xl); align-items: center; padding: var(--space-lg) var(--space-xl); background: var(--color-paper-2); border-top: var(--rule-hair) solid var(--color-rule); }
+.trilha__linha:first-child { border-top: 0; }
+.trilha__linha > * { font-size: var(--slide-body); }
+.trilha__nome { color: var(--color-ink); font-weight: 500; }
+.trilha__nota { color: var(--color-muted); }
+.trilha__quando { font-family: var(--font-outlier); color: var(--color-cool); }
+.trilha--datas .trilha__linha { grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); }
+
+.estado { justify-self: start; padding: var(--space-2xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: 4px; font-size: var(--slide-label); white-space: nowrap; }
+.estado--ok { background: var(--color-ok-soft); color: var(--color-ok); border-color: var(--color-ok-soft); }
+.estado--pendente { background: var(--color-accent-soft); color: var(--color-accent); border-color: var(--color-accent-soft); }
+.estado--falha { background: var(--color-bad-soft); color: var(--color-bad); border-color: var(--color-bad-soft); }
+
+/* diff, antes e depois na mesma tabela */
+.diff { width: 100%; border-collapse: collapse; border: var(--rule-hair) solid var(--color-rule); }
+.diff th, .diff td { padding: var(--space-sm) var(--space-lg); text-align: left; border-top: var(--rule-hair) solid var(--color-rule); }
+.diff th { font-size: var(--slide-label); font-weight: 500; color: var(--color-muted); background: var(--color-paper-2); }
+.diff td { color: var(--color-ink-2); background: var(--color-paper-2); }
+.diff td:first-child { color: var(--color-ink); }
+.diff .sinal { width: 2.5rem; font-family: var(--font-outlier); text-align: center; }
+.diff .menos { background: var(--color-bad-soft); color: var(--color-bad); }
+.diff .mais { background: var(--color-ok-soft); color: var(--color-ok); }
+.diff .igual { color: var(--color-muted); }
+.diff s { text-decoration-thickness: 2px; }
+
+/* defeitos, o que acontecia e o que mudou */
+.defeitos { display: grid; gap: var(--space-md); margin: 0; padding: 0; list-style: none; }
+.defeitos li { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: var(--space-xl); padding: var(--space-md) var(--space-lg); background: var(--color-paper-2); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); }
+.defeitos strong { display: block; color: var(--color-ink); font-weight: 500; margin-bottom: var(--space-2xs); }
+.defeitos .agora { color: var(--color-ok); }
+
+/* tabela simples */
+.tabela { width: 100%; border-collapse: collapse; }
+.tabela th, .tabela td { padding: var(--space-sm) 0; text-align: left; border-top: var(--rule-hair) solid var(--color-rule); }
+.tabela th { font-size: var(--slide-label); font-weight: 500; color: var(--color-muted); }
+.tabela td.num { font-family: var(--font-outlier); color: var(--color-ink); text-align: right; }
+
+.formula { font-family: var(--font-outlier); font-size: var(--slide-body); color: var(--color-cool); background: var(--color-paper-3); border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-pill); padding: var(--space-sm) var(--space-md); justify-self: start; }
+
+/* gráficos */
+.grafico { width: 100%; height: auto; overflow: visible; }
+.grafico .grade { stroke: var(--color-rule); stroke-width: 1; }
+.grafico .corte { stroke: var(--color-cool); stroke-width: 1.5; }
+.grafico .marca { fill: var(--color-muted); }
+.grafico .marca--argumento { fill: var(--color-accent); }
+.grafico text { font-family: var(--font-body); font-size: 15px; fill: var(--color-muted); }
+.grafico .rotulo--argumento { fill: var(--color-ink); }
+.grafico .eixo { font-size: 13px; }
+.grafico .eixo--corte { fill: var(--color-cool); }
+.grafico .valor { font-family: var(--font-outlier); fill: var(--color-ink); }
+figure { margin: 0; display: grid; gap: var(--space-sm); align-content: start; }
+figcaption { font-size: var(--slide-label); color: var(--color-muted); max-width: 52ch; }
+
+.fecho { justify-content: center; }
+.fecho a { color: var(--color-ink-2); text-decoration-color: var(--color-rule-2); transition: color var(--dur-short) var(--ease-out); }
+.fecho a:hover { color: var(--color-accent); }
+.fecho a:active { color: var(--color-accent); text-decoration-color: var(--color-accent); }
+
+/* modo de apresentação, só com javascript. sem ele os slides ficam empilhados e legíveis */
+.js .apresentando .deck { display: block; padding: 0; }
+.js .apresentando .slide { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--escala, 1)); transform-origin: center; }
+.js .apresentando .slide.atual { display: flex; }
+.js .apresentando .slide.capa.atual { display: grid; }
+.js .apresentando { background: var(--color-paper-3); }
+
+@media print {
+  @page { size: 1280px 720px; margin: 0; }
+  body { background: var(--color-paper); }
+  .deck { display: block; padding: 0; }
+  .slide { border: 0; border-radius: 0; break-after: page; }
+}

@@ -324,7 +324,12 @@ docs/                             relatório, slides e cronograma
 
 ## Documentos
 
-`docs/` contém o relatório parcial, os slides da apresentação e o cronograma.
+`docs/` contém o relatório parcial, o cronograma e os slides das duas
+apresentações. `slides-tcc.pdf` é a de agosto. A segunda, sobre o que mudou
+desde então, está em `slides-segunda-apresentacao.pdf` e em
+`apresentacao-novembro/`, como página HTML. Abra o `index.html` no navegador e
+aperte `p` para entrar no modo de apresentação, que avança com as setas e sai
+com Esc. O endereço com `?apresentar` no fim já abre nesse modo.
 
 ## Licença
 

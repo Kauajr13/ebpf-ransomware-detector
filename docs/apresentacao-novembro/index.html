@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O que mudou desde agosto</title>
+<meta name="description" content="Segunda apresentação do TCC sobre detecção de ransomware no kernel Linux com eBPF: o que mudou desde agosto, com calibração, custo e tempo até o bloqueio.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./apresentacao.css">
+</head>
+<body>
+<main class="deck">
+
+<section class="slide capa" aria-label="Capa">
+  <div class="capa__texto">
+    <h1>O que mudou desde agosto</h1>
+    <p class="lead">Detector de ransomware no kernel Linux, com eBPF, entropia e qui-quadrado.</p>
+    <dl>
+      <dt>Aluno</dt><dd>Kauã Junior Silva Soares, RA 231024061</dd>
+      <dt>Orientador</dt><dd>Prof. Dr. Kelton Augusto Pontara da Costa</dd>
+      <dt>Quando</dt><dd>Segunda apresentação, novembro de 2026</dd>
+    </dl>
+  </div>
+  <div class="leitura" aria-label="Alarmes falsos em 40 execuções">
+    <span class="leitura__antes">6/40</span>
+    <span class="leitura__agora">0/40</span>
+    <p>execuções benignas com alarme falso. <span class="quem">Regra nova</span>, detecção mantida em 100%.</p>
+  </div>
+  <footer class="folio"><span>TCC, UNESP Bauru</span><span class="measured">1</span></footer>
+</section>
+
+<section class="slide" aria-label="As pendências de agosto">
+  <h2>Agosto terminou com três pendências</h2>
+  <div class="trilha">
+    <div class="trilha__linha"><span class="trilha__nome">Calibrar os limiares</span><span class="trilha__nota">O 7,8 era só ponto de partida</span><span class="estado estado--ok">Resolvida</span></div>
+    <div class="trilha__linha"><span class="trilha__nome">Medir o custo</span><span class="trilha__nota">Quanto o detector pesa na escrita</span><span class="estado estado--ok">Resolvida</span></div>
+    <div class="trilha__linha"><span class="trilha__nome">Amostras reais</span><span class="trilha__nota">Ransomware de verdade em VM isolada</span><span class="estado estado--pendente">Pendente</span></div>
+  </div>
+  <p>Esta apresentação segue a ordem dessa lista, mais o que apareceu no caminho.</p>
+  <footer class="folio"><span>Ponto de partida</span><span class="measured">2</span></footer>
+</section>
+
+<section class="slide" aria-label="Entropia contra qui-quadrado">
+  <h2>A entropia sozinha confunde compressão com cifra</h2>
+  <div class="duas duas--graficos">
+    <figure>
+      <svg class="grafico" viewBox="0 0 456 252" role="img" aria-label="Entropia corrigida por carga">
+<line class="grade" x1="150.0" y1="4" x2="150.0" y2="208"/>
+<text class="eixo" x="150.0" y="226" text-anchor="middle">7,4</text>
+<line class="grade" x1="239.2" y1="4" x2="239.2" y2="208"/>
+<text class="eixo" x="239.2" y="226" text-anchor="middle">7,6</text>
+<line class="grade" x1="328.5" y1="4" x2="328.5" y2="208"/>
+<text class="eixo" x="328.5" y="226" text-anchor="middle">7,8</text>
+<line class="grade" x1="417.7" y1="4" x2="417.7" y2="208"/>
+<text class="eixo" x="417.7" y="226" text-anchor="middle">8,0</text>
+<line class="corte" x1="328.5" y1="2" x2="328.5" y2="210"/>
+<text class="eixo eixo--corte" x="334.5" y="12">limiar</text>
+<text class="rotulo rotulo--argumento" x="0" y="25.5">simulador, 16 KiB</text>
+<rect class="marca marca--argumento" x="415.0" y="14.5" width="5.0" height="12" rx="2"/>
+<text class="rotulo rotulo--argumento" x="0" y="50.5">simulador, 64 KiB</text>
+<rect class="marca marca--argumento" x="413.7" y="39.5" width="7.1" height="12" rx="2"/>
+<text class="rotulo rotulo--argumento" x="0" y="75.5">simulador, 256 KiB</text>
+<rect class="marca marca--argumento" x="416.8" y="64.5" width="5.0" height="12" rx="2"/>
+<text class="rotulo rotulo--argumento" x="0" y="100.5">openssl AES-CTR</text>
+<rect class="marca marca--argumento" x="411.9" y="89.5" width="7.1" height="12" rx="2"/>
+<text class="rotulo" x="0" y="125.5">200 arquivos .gz</text>
+<rect class="marca" x="379.8" y="114.5" width="19.6" height="12" rx="2"/>
+<text class="rotulo" x="0" y="150.5">60 fotos extraídas</text>
+<rect class="marca" x="410.6" y="139.5" width="5.0" height="12" rx="2"/>
+<text class="rotulo" x="0" y="175.5">JPG com ruído</text>
+<rect class="marca" x="320.4" y="164.5" width="12.5" height="12" rx="2"/>
+<text class="rotulo" x="0" y="200.5">vídeo em segmentos</text>
+<rect class="marca" x="181.2" y="189.5" width="5.0" height="12" rx="2"/>
+<text class="eixo" x="150" y="246">entropia, eixo começa em 7,4</text>
+</svg>
+      <figcaption>As fotos extraídas ficam a só 0,012 bit da cifra.</figcaption>
+    </figure>
+    <figure>
+      <svg class="grafico" viewBox="142 0 314 252" role="img" aria-label="Qui-quadrado por carga">
+<line class="grade" x1="150.0" y1="4" x2="150.0" y2="208"/>
+<text class="eixo" x="150.0" y="226" text-anchor="middle">100</text>
+<line class="grade" x1="240.6" y1="4" x2="240.6" y2="208"/>
+<text class="eixo" x="240.6" y="226" text-anchor="middle">1 mil</text>
+<line class="grade" x1="331.2" y1="4" x2="331.2" y2="208"/>
+<text class="eixo" x="331.2" y="226" text-anchor="middle">10 mil</text>
+<line class="grade" x1="421.9" y1="4" x2="421.9" y2="208"/>
+<text class="eixo" x="421.9" y="226" text-anchor="middle">100 mil</text>
+<line class="corte" x1="213.3" y1="2" x2="213.3" y2="210"/>
+<text class="eixo eixo--corte" x="219.3" y="12">corte 500</text>
+<rect class="marca marca--argumento" x="183.6" y="14.5" width="9.6" height="12" rx="2"/>
+<rect class="marca marca--argumento" x="178.4" y="39.5" width="16.0" height="12" rx="2"/>
+<rect class="marca marca--argumento" x="181.0" y="64.5" width="12.2" height="12" rx="2"/>
+<rect class="marca marca--argumento" x="183.6" y="89.5" width="16.9" height="12" rx="2"/>
+<rect class="marca" x="228.3" y="114.5" width="19.4" height="12" rx="2"/>
+<rect class="marca" x="312.6" y="139.5" width="5.3" height="12" rx="2"/>
+<rect class="marca" x="331.1" y="164.5" width="8.1" height="12" rx="2"/>
+<rect class="marca" x="421.6" y="189.5" width="5.0" height="12" rx="2"/>
+<text class="eixo" x="150" y="246">qui-quadrado, escala log</text>
+</svg>
+      <figcaption>A cifra fica até 361. Nenhuma carga benigna desce de 731.</figcaption>
+    </figure>
+  </div>
+  <footer class="folio"><span>Calibração, 40 execuções do detector real</span><span class="measured">3</span></footer>
+</section>
+
+<section class="slide" aria-label="A regra de decisão antes e depois">
+  <h2>A regra de decisão, antes e depois</h2>
+  <table class="diff">
+    <thead><tr><th class="sinal"></th><th>Critério</th><th>Agosto</th><th>Agora</th></tr></thead>
+    <tbody>
+      <tr><td class="sinal menos">±</td><td>Entropia</td><td><s>H ≥ 7,8</s></td><td>H corrigida ≥ 7,8</td></tr>
+      <tr><td class="sinal mais">+</td><td>Qui-quadrado</td><td class="igual">não havia</td><td class="measured">≤ 500</td></tr>
+      <tr><td class="sinal mais">+</td><td>Janela de tempo</td><td class="igual">não havia</td><td class="measured">10 s</td></tr>
+      <tr><td class="sinal"></td><td>Volume escrito</td><td class="igual measured">≥ 64 KiB</td><td class="igual measured">≥ 64 KiB</td></tr>
+      <tr><td class="sinal"></td><td>Arquivos distintos</td><td class="igual measured">≥ 10</td><td class="igual measured">≥ 10</td></tr>
+    </tbody>
+  </table>
+  <p>A correção de Miller-Madow tira o viés de amostra pequena. Dado aleatório com 512 bytes dava 7,59 e passava despercebido.</p>
+  <footer class="folio"><span>Critérios de decisão</span><span class="measured">4</span></footer>
+</section>
+
+<section class="slide" aria-label="Três defeitos no kernel">
+  <h2>Três defeitos corrigidos no kernel</h2>
+  <ul class="defeitos">
+    <li><p><strong>Pipe e socket contavam como arquivo</strong>Tráfego TLS e SSH batia os três critérios.</p><p class="agora">Só arquivo regular entra na conta.</p></li>
+    <li><p><strong>O mapa de processos nunca esvaziava</strong>Depois de 1024 processos o detector ficava cego.</p><p class="agora">Mapa LRU, limpo quando o processo sai.</p></li>
+    <li><p><strong>Não havia janela de tempo</strong>Um processo comum juntava 10 arquivos em horas.</p><p class="agora">Os critérios valem dentro de 10 s.</p></li>
+  </ul>
+  <footer class="folio"><span>src/bpf/ransomware_detect.bpf.c</span><span class="measured">5</span></footer>
+</section>
+
+<section class="slide" aria-label="Duas medições de agosto estavam erradas">
+  <h2>Duas medições de agosto estavam erradas</h2>
+  <div class="duas">
+    <div class="leitura">
+      <span class="leitura__antes">7,93</span>
+      <span class="leitura__agora leitura__agora--s">8,00</span>
+      <p>Entropia do simulador. O log dele ia para um arquivo regular, e esse texto entrava no próprio histograma.</p>
+    </div>
+    <div class="leitura">
+      <span class="leitura__antes">libaio</span>
+      <span class="leitura__agora leitura__agora--s">psync</span>
+      <p>O fio usava io_submit, que não passa por vfs_write. O detector nem via a carga medida.</p>
+    </div>
+  </div>
+  <footer class="folio"><span>Os 8 alertas antigos ficaram em bench/results/legado</span><span class="measured">6</span></footer>
+</section>
+
+<section class="slide" aria-label="Tempo até o bloqueio">
+  <h2>O kill chega no décimo arquivo</h2>
+  <div class="duas">
+    <div class="leitura">
+      <span class="leitura__agora">10</span>
+      <p>arquivos perdidos de 300, nas 15 execuções. É o critério de arquivos que fixa a perda, não a latência.</p>
+    </div>
+    <table class="tabela">
+      <thead><tr><th>Tamanho de cada arquivo</th><th>Até o SIGKILL</th></tr></thead>
+      <tbody>
+        <tr><td>16 KiB</td><td class="num">13,4 ms</td></tr>
+        <tr><td>64 KiB</td><td class="num">17,6 ms</td></tr>
+        <tr><td>256 KiB</td><td class="num">31,6 ms</td></tr>
+        <tr><td>Do kernel ao agente</td><td class="num">≈ 50 µs</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <footer class="folio"><span><span class="measured">sim_encrypt</span> com <span class="measured">--kill</span>, 5 execuções por tamanho</span><span class="measured">7</span></footer>
+</section>
+
+<section class="slide" aria-label="Ransomware lento">
+  <h2>Ransomware lento passa pela janela</h2>
+  <div class="trilha">
+    <div class="trilha__linha"><span class="trilha__nome">Sem atraso</span><span class="trilha__nota">Bloqueado em 15 de 15, 10 arquivos perdidos</span><span class="estado estado--ok">Pego</span></div>
+    <div class="trilha__linha"><span class="trilha__nome">500 ms por arquivo</span><span class="trilha__nota">Bloqueado em 3 de 3, aos 4,6 s</span><span class="estado estado--ok">Pego</span></div>
+    <div class="trilha__linha"><span class="trilha__nome">1500 ms por arquivo</span><span class="trilha__nota">Nenhum bloqueio, 40 de 40 perdidos</span><span class="estado estado--falha">Escapa</span></div>
+  </div>
+  <p>Uma janela maior pega o lento, mas junta mais escrita benigna. Essa troca entra na monografia.</p>
+  <footer class="folio"><span>Janela de 10 s, 10 arquivos</span><span class="measured">8</span></footer>
+</section>
+
+<section class="slide" aria-label="Custo do detector">
+  <h2>Cada escrita custa cerca de 1 µs a mais</h2>
+  <figure>
+    <svg class="grafico" viewBox="0 0 770 216" role="img" aria-label="Perda de vazão por carga">
+<line class="grade" x1="180.0" y1="0" x2="180.0" y2="180"/>
+<text class="eixo" x="180.0" y="200" text-anchor="middle">0%</text>
+<line class="grade" x1="284.0" y1="0" x2="284.0" y2="180"/>
+<text class="eixo" x="284.0" y="200" text-anchor="middle">10%</text>
+<line class="grade" x1="388.0" y1="0" x2="388.0" y2="180"/>
+<text class="eixo" x="388.0" y="200" text-anchor="middle">20%</text>
+<line class="grade" x1="492.0" y1="0" x2="492.0" y2="180"/>
+<text class="eixo" x="492.0" y="200" text-anchor="middle">30%</text>
+<line class="grade" x1="596.0" y1="0" x2="596.0" y2="180"/>
+<text class="eixo" x="596.0" y="200" text-anchor="middle">40%</text>
+<line class="grade" x1="700.0" y1="0" x2="700.0" y2="180"/>
+<text class="eixo" x="700.0" y="200" text-anchor="middle">50%</text>
+<text class="rotulo" x="0" y="27">sequencial, 64 KiB</text>
+<rect class="marca marca--argumento" x="180" y="11" width="87.4" height="22" rx="2"/>
+<text class="valor" x="277.4" y="27">8,4%</text>
+<text class="rotulo" x="0" y="71">200 arquivos de 64 KiB</text>
+<rect class="marca marca--argumento" x="180" y="55" width="173.7" height="22" rx="2"/>
+<text class="valor" x="363.7" y="71">16,7%</text>
+<text class="rotulo" x="0" y="115">aleatória, 4 KiB</text>
+<rect class="marca marca--argumento" x="180" y="99" width="422.2" height="22" rx="2"/>
+<text class="valor" x="612.2" y="115">40,6%</text>
+<text class="rotulo" x="0" y="159">sequencial, 4 KiB</text>
+<rect class="marca marca--argumento" x="180" y="143" width="473.2" height="22" rx="2"/>
+<text class="valor" x="663.2" y="159">45,5%</text>
+</svg>
+    <figcaption>Perda de vazão com o detector, medida em memória, que é o pior caso. Em disco, o custo some no tempo do dispositivo.</figcaption>
+  </figure>
+  <footer class="folio"><span>fio em /dev/shm, 5 repetições, 1,03 a 1,40 µs por chamada</span><span class="measured">9</span></footer>
+</section>
+
+<section class="slide" aria-label="Qui-quadrado no kernel">
+  <h2>O qui-quadrado desceu para o kernel</h2>
+  <div class="duas">
+    <div class="leitura">
+      <span class="leitura__antes">8,2 s</span>
+      <span class="leitura__agora leitura__agora--s">0,016 s</span>
+      <p>CPU do agente em 20 s de escrita em 200 arquivos. O kernel descartou 360 mil eventos e não enviou nenhum.</p>
+    </div>
+    <div class="leitura">
+      <p>Sem ponto flutuante no eBPF, a conta vira só inteiros:</p>
+      <span class="formula">256 Σc² ≤ n (n + 500)</span>
+      <p>Mesma decisão da conta em double nos 3.000 histogramas testados.</p>
+    </div>
+  </div>
+  <footer class="folio"><span>Contador percpu de enviados e descartados</span><span class="measured">10</span></footer>
+</section>
+
+<section class="slide" aria-label="O que falta">
+  <h2>O que falta até a banca</h2>
+  <div class="trilha trilha--datas">
+    <div class="trilha__linha"><span class="trilha__quando">agora</span><span class="trilha__nota">Simular famílias reais: cifra intermitente, só o início do arquivo, nota de resgate, mmap, várias threads</span></div>
+    <div class="trilha__linha"><span class="trilha__quando">com aval</span><span class="trilha__nota">Amostras reais em VM isolada, sem rede</span></div>
+    <div class="trilha__linha"><span class="trilha__quando">08/01/2027</span><span class="trilha__nota">Postagem da monografia</span></div>
+    <div class="trilha__linha"><span class="trilha__quando">18 a 21/01</span><span class="trilha__nota">Banca examinadora</span></div>
+  </div>
+  <footer class="folio"><span>Cronograma reformulado depois da greve</span><span class="measured">11</span></footer>
+</section>
+
+<section class="slide fecho" aria-label="Perguntas">
+  <h1>Perguntas?</h1>
+  <p class="lead">Código, resultados e scripts dos experimentos em <a href="https://github.com/Kauajr13/ebpf-ransomware-detector">github.com/Kauajr13/ebpf-ransomware-detector</a></p>
+  <footer class="folio"><span>Kauã Junior Silva Soares</span><span class="measured">12</span></footer>
+</section>
+
+</main>
+<script>
+(() => {
+  const raiz = document.documentElement;
+  raiz.classList.add('js');
+  const slides = [...document.querySelectorAll('.slide')];
+  let atual = 0;
+  const ajustar = () => {
+    const escala = Math.min(innerWidth / 1280, innerHeight / 720);
+    raiz.style.setProperty('--escala', escala.toFixed(4));
+  };
+  const mostrar = (i) => {
+    atual = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, k) => s.classList.toggle('atual', k === atual));
+  };
+  // o modo de apresentação liga com a tecla p, e os slides empilhados continuam valendo pra leitura e impressão
+  addEventListener('keydown', (e) => {
+    if (e.key === 'p') { document.body.classList.toggle('apresentando'); ajustar(); mostrar(atual); return; }
+    if (!document.body.classList.contains('apresentando')) return;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); mostrar(atual + 1); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); mostrar(atual - 1); }
+    if (e.key === 'Escape') document.body.classList.remove('apresentando');
+  });
+  addEventListener('resize', ajustar);
+  if (new URLSearchParams(location.search).has('apresentar')) { document.body.classList.add('apresentando'); ajustar(); mostrar(0); }
+})();
+</script>
+</body>
+</html>
