@@ -3,6 +3,7 @@
 # fase 2, tempo até o bloqueio e arquivos perdidos com sim_encrypt e --kill
 # roda como root a partir da raiz do projeto, sudo bash bench/run_bench.sh
 # REPS e FIO_RUNTIME no ambiente mudam repetições e segundos por execução
+# FASES escolhe o que roda, FASES=1 refaz só o overhead sem tocar no kill
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,7 +15,12 @@ RESULTS="bench/results"
 DETECTOR="./ransomware_detect"
 REPS="${REPS:-5}"
 FIO_RUNTIME="${FIO_RUNTIME:-20}"
-ALVO_FIO="/tmp/bench_fio"
+FASES="${FASES:-1 2}"
+# tmpfs e não disco. no disco a vazão variava de 128 a 352 MB/s no mesmo modo
+# e o p99 de 17 ms era o fio esperando o writeback, ruído que engolia o custo
+# do detector. em memória sobra só o custo de cpu, que é o que o kprobe adiciona.
+# tmpfs é arquivo regular, então passa pelo filtro S_ISREG como disco passaria
+ALVO_FIO="/dev/shm/bench_fio"
 ALVO_CIFRA="/tmp/bench_cifra"
 
 [[ $EUID -ne 0 ]] && { echo "ERRO: execute como root (sudo)"; exit 1; }
@@ -70,16 +76,18 @@ else:
 
 # psync e não libaio, porque io_submit não passa por vfs_write e o detector
 # nunca enxergaria a carga, o overhead sairia zero por engano
+# 256m por job porque o arquivo agora ocupa ram. com time_based o fio
+# reescreve o mesmo arquivo em volta, o tamanho não muda a medição
 CARGAS=(
-    "seq_64k|--rw=write --bs=64k --size=1g"
-    "seq_4k|--rw=write --bs=4k --size=1g"
-    "rand_4k|--rw=randwrite --bs=4k --size=1g"
+    "seq_64k|--rw=write --bs=64k --size=256m"
+    "seq_4k|--rw=write --bs=4k --size=256m"
+    "rand_4k|--rw=randwrite --bs=4k --size=256m"
     "muitos_arquivos|--rw=write --bs=16k --nrfiles=200 --filesize=64k --size=12800k"
 )
 
 CSV_OVERHEAD="$RESULTS/overhead.csv"
-echo "carga,modo,rep,bw_kib,iops,lat_p99_us,usr_cpu,sys_cpu,agente_cpu_s,kprobe_execucoes,kprobe_ns_total" \
-    > "$CSV_OVERHEAD"
+CSV_KILL="$RESULTS/latencia_kill.csv"
+roda_fase() { [[ " $FASES " == *" $1 "* ]]; }
 
 rodar_fio() {
     local carga="$1" args="$2" saida="$3"
@@ -101,7 +109,10 @@ print(f'{w["bw"]},{w["iops"]:.1f},{p99:.1f},{j["usr_cpu"]:.3f},{j["sys_cpu"]:.3f
 EOF
 }
 
-echo "=== Fase 1: overhead, $REPS repetições de ${FIO_RUNTIME}s por carga e modo ==="
+if roda_fase 1; then
+echo "carga,modo,rep,bw_kib,iops,lat_p99_us,usr_cpu,sys_cpu,agente_cpu_s,kprobe_execucoes,kprobe_ns_total" \
+    > "$CSV_OVERHEAD"
+echo "=== Fase 1: overhead em $ALVO_FIO, $REPS repetições de ${FIO_RUNTIME}s por carga e modo ==="
 for entrada in "${CARGAS[@]}"; do
     carga="${entrada%%|*}"
     args="${entrada#*|}"
@@ -130,12 +141,9 @@ for entrada in "${CARGAS[@]}"; do
     done
 done
 rm -rf "$ALVO_FIO"
+fi
 
 # fase 2
-
-CSV_KILL="$RESULTS/latencia_kill.csv"
-echo "cenario,tamanho_kb,atraso_ms,rep,arquivos_total,arquivos_perdidos,morto,inicio_ns,ts_evento_ns,ts_user_ns,ts_kill_ns,t_ate_kill_ms,t_kernel_user_us" \
-    > "$CSV_KILL"
 
 # arquivo perdido é o que não começa mais com o texto do sim_benign, inclusive
 # o que foi truncado e ficou pela metade no instante do kill
@@ -193,6 +201,9 @@ EOF
     echo "[*] $cenario ${tam}KiB atraso ${atraso}ms rep $rep: $perdidos de $total perdidos"
 }
 
+if roda_fase 2; then
+echo "cenario,tamanho_kb,atraso_ms,rep,arquivos_total,arquivos_perdidos,morto,inicio_ns,ts_evento_ns,ts_user_ns,ts_kill_ns,t_ate_kill_ms,t_kernel_user_us" \
+    > "$CSV_KILL"
 echo ""
 echo "=== Fase 2: tempo até o bloqueio ==="
 for tam in 16 64 256; do
@@ -209,6 +220,7 @@ for atraso in 500 1500; do
     done
 done
 rm -rf "$ALVO_CIFRA"
+fi
 
 echo ""
 echo "[*] Resultados em $CSV_OVERHEAD e $CSV_KILL"

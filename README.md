@@ -54,7 +54,7 @@ No espaço de usuário, em `src/userspace/main.cpp`:
    arquivo comprimido de arquivo cifrado nos testes, coisa que a entropia
    sozinha não conseguiu.
 5. Se a entropia corrigida alcança o limiar, 7,8 por padrão, e o qui-quadrado
-   fica abaixo de 325, imprime o alerta com PID, nome do processo, entropia,
+   fica abaixo de 500, imprime o alerta com PID, nome do processo, entropia,
    qui-quadrado, bytes e arquivos. Com `--kill`, envia SIGKILL ao TGID,
    derrubando o processo inteiro e não apenas a thread que caiu no kprobe. Com
    `--csv`, grava em disco todo evento, inclusive os que ficaram abaixo do
@@ -98,7 +98,7 @@ sudo ./ransomware_detect [opções]
 | Opção | Efeito | Padrão |
 | --- | --- | --- |
 | `--threshold FLOAT` | Limiar da entropia corrigida para o alerta, em bits por byte | 7.8 |
-| `--chi2 MAX` | Qui-quadrado máximo para considerar o dado cifrado, 0 desliga | 325 |
+| `--chi2 MAX` | Qui-quadrado máximo para considerar o dado cifrado, 0 desliga | 500 |
 | `--floor BYTES` | Bytes escritos dentro da janela antes de o processo ser avaliado | 65536 |
 | `--files N` | Arquivos distintos mínimos, com teto de 32 | 10 |
 | `--window SEG` | Janela de tempo dos critérios, 0 desliga | 10 |
@@ -138,8 +138,9 @@ que gravam muito arquivo comprimido durante o teste.
 
 `bench/run_bench.sh` tem duas fases:
 
-1. Overhead com fio em quatro cargas: escrita sequencial de 64 KiB e de 4 KiB,
-   escrita aleatória de 4 KiB e 200 arquivos pequenos. Cada carga roda sem e com
+1. Overhead com fio em quatro cargas, em `/dev/shm` para o disco não pôr ruído
+   na medida: escrita sequencial de 64 KiB e de 4 KiB, escrita aleatória de
+   4 KiB e 200 arquivos pequenos. Cada carga roda sem e com
    o detector, 5 vezes, em ordem alternada. Mede vazão, latência p99, CPU de
    sistema do fio, CPU do agente e o custo por chamada do kprobe pelo
    `kernel.bpf_stats_enabled`. O fio usa `psync`: com `libaio`, que a versão
@@ -180,29 +181,66 @@ Ainda não foi revisado. auditd e inotify só registram eventos e não decidem
 nada, então a comparação de tempo de detecção precisa de um baseline que também
 calcule entropia e mate o processo.
 
-## Resultados preliminares, por emulação
+## Resultados
 
-`bench/results/fp_emulado/calibracao.md` traz 39 execuções, 3 por carga, emuladas
-por strace:
+### Calibração
+
+`bench/results/fp/calibracao.md` traz 40 execuções do detector real, 3 por carga
+mais o ocioso:
 
 | Regra | Execuções benignas com alarme falso | Detecção |
 | --- | --- | --- |
-| entropia comum ≥ 7,8, a regra anterior | 6 de 39, todas de `gzip_muitos` e `extrair_fotos` | 100% |
-| Miller-Madow ≥ 7,8 | 9 de 39 | 100% |
+| entropia comum ≥ 7,8, a regra anterior | 6 de 40, todas de `gzip_muitos` e `extrair_fotos` | 100% |
+| Miller-Madow ≥ 7,8 | 9 de 40 | 100% |
 | Miller-Madow sozinho, no melhor limiar, 7,99 | 0 | 100%, com margem de só 0,012 bit |
-| **Miller-Madow ≥ 7,8 e qui-quadrado ≤ 325** | **0** | **100%** |
+| **Miller-Madow ≥ 7,8 e qui-quadrado ≤ 500** | **0** | **100%** |
 
 A entropia sozinha não separa gzip e JPG de cifragem: o `gzip_muitos` chega a
-7,958 e o `extrair_fotos` a 7,986. O qui-quadrado separa com folga. Todo evento
-de cifragem ficou entre 209 e 327, e todo evento benigno de entropia alta ficou
-acima de 618. O corte de 325 é o quantil 0,999 da qui-quadrado com 255 graus de
-liberdade, tirado da teoria e não ajustado nos dados. Com a regra combinada,
-qualquer limiar de entropia entre 7,0 e 7,995 dá o mesmo resultado. O 7,8 foi
-mantido por ser o mais próximo do original e o mais robusto para amostra
-pequena.
+7,959 e o `extrair_fotos` a 7,986. O qui-quadrado separa com folga. Os eventos de
+cifragem ficaram entre 206 e 361, e todo evento benigno com entropia corrigida
+acima de 7,8 ficou acima de 731.
 
-Esses números ainda precisam ser confirmados pelo detector real com
-`run_all.sh`.
+O corte começou em 325, o quantil 0,999 teórico da qui-quadrado com 255 graus de
+liberdade. Ele deixou 3 de 66 eventos de cifragem acima, todos do openssl, entre
+330 e 361. O openssl grava o cabeçalho fixo `Salted__` no começo de cada
+arquivo, e é justamente o começo que a amostra pega. O corte subiu para 500, que
+fica perto do meio entre 361 e 731 em escala log. Com isso ele passa a ser
+ajustado nos dados, e com folga dos dois lados. Um ransomware que grave um
+marcador fixo maior no início de cada arquivo ainda pode empurrar o qui-quadrado
+acima do corte.
+
+Com a regra combinada, qualquer limiar de entropia entre 7,0 e 7,995 dá o mesmo
+resultado. O 7,8 foi mantido por ser o mais próximo do original e o mais robusto
+para amostra pequena.
+
+A emulação por strace, em `bench/results/fp_emulado/`, chegou aos mesmos números
+antes do teste real. O `gzip_muitos` deu 7,903 a 7,958 emulado e 7,915 a 7,959
+real, o que valida o emulador como método.
+
+### Tempo até o bloqueio
+
+| Cenário | Bloqueado | Arquivos perdidos | Tempo até o kill |
+| --- | --- | --- | --- |
+| arquivos de 16, 64 e 256 KiB, sem atraso | 15 de 15 | sempre 10, de 300 | 13 a 32 ms |
+| 500 ms entre arquivos | 3 de 3 | 10, de 40 | 4,6 s |
+| 1500 ms entre arquivos | 0 de 3 | 40, de 40 | escapou |
+
+A perda é fixada pelo `--files`, não pela latência. O alerta sai no 10º arquivo
+distinto, e o caminho do kernel até o agente leva cerca de 50 µs. O tempo até o
+kill é quase todo o tempo de cifrar esses 10 arquivos. Baixar `--files` reduz a
+perda e aumenta o risco de falso positivo.
+
+### Overhead
+
+A primeira rodada, em disco, está em `bench/results/overhead_disco.csv`. A vazão
+variou de 128 a 352 MB/s dentro do mesmo modo, e o p99 de até 20 ms era o fio
+esperando o writeback. O ruído do disco engoliu o custo do detector, então só o
+custo por chamada do kprobe se aproveita: 1,4 a 1,9 µs. A fase 1 agora roda em
+`/dev/shm`, que é tmpfs, onde sobra só o custo de CPU. Refazer só ela:
+
+```sh
+sudo FASES=1 bash bench/run_bench.sh && python3 scripts/plot_results.py
+```
 
 `bench/results/legado/` guarda os 8 alertas da versão anterior. A entropia deles
 saiu entre 7,92 e 7,93 e não perto de 8, porque o stdout do simulador ia para um

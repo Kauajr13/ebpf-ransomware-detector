@@ -22,9 +22,11 @@ struct Configuracao {
     // 7.8 veio do ShieldFS e se manteve na calibracao, agora sobre a entropia
     // corrigida. scripts/calibrar_limiar.py refaz a conta com dados novos
     double limiarEntropia = 7.8;
-    // quantil 0.999 da qui-quadrado com 255 graus de liberdade. separa
-    // comprimido de cifrado, coisa que a entropia sozinha nao fez nos testes
-    double maxQuiQuadrado = 325.0;
+    // separa comprimido de cifrado, coisa que a entropia sozinha nao fez nos
+    // testes. o quantil teorico de 325 deixava escapar evento do openssl,
+    // cujo cabecalho fixo cai no comeco do arquivo, entre 330 e 361. o menor
+    // benigno deu 731, entao 500 fica com folga pros dois lados
+    double maxQuiQuadrado = 500.0;
     uint64_t bytesMinimos = 65536;
     uint32_t limiarArquivos = 10;
     double janelaSeg = 10.0;
@@ -108,7 +110,7 @@ void imprimirUso(const char *prog)
          << "  --floor BYTES       bytes minimos dentro da janela (padrao: 65536)\n"
          << "  --files N           arquivos distintos minimos (padrao: 10, teto: "
          << MAX_INODES << ")\n"
-         << "  --chi2 MAX          qui-quadrado maximo pra considerar cifrado, 0 desliga (padrao: 325)\n"
+         << "  --chi2 MAX          qui-quadrado maximo pra considerar cifrado, 0 desliga (padrao: 500)\n"
          << "  --window SEG        janela de tempo dos criterios, 0 desliga (padrao: 10)\n"
          << "  --poll MS           intervalo de poll em ms (padrao: 50)\n"
          << "  --kill              matar processo ao detectar\n"

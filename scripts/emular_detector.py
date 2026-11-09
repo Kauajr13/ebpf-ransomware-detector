@@ -171,7 +171,7 @@ def main():
     ap.add_argument("--files", type=int, default=10)
     ap.add_argument("--window", type=float, default=10.0)
     ap.add_argument("--threshold", type=float, default=7.8)
-    ap.add_argument("--chi2", type=float, default=325.0)
+    ap.add_argument("--chi2", type=float, default=500.0)
     args = ap.parse_args()
 
     with open(args.trace, errors="replace") as f:

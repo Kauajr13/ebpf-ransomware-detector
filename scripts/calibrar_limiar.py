@@ -25,8 +25,13 @@ ATACANTES = {"sim_encrypt": {"sim_encrypt"}, "cifragem_legitima": {"python3"}}
 LIMIAR_PADRAO = 7.8
 # quantil 0,999 da qui-quadrado com 255 graus de liberdade, aproximação normal
 # de média 255 e desvio raiz de 510. acima disso o histograma é incompatível
-# com a uniforme, que é o que se espera de dado cifrado
+# com a uniforme. fica no relatório como referência teórica
 QUI2_UNIFORME = 255 + 3.09 * math.sqrt(2 * 255)
+# corte usado na decisão. o teórico deixou 3 de 66 eventos de cifragem do
+# openssl acima, entre 330 e 361, porque o cabeçalho fixo Salted__ cai bem no
+# começo do arquivo, que é o que a amostra pega. o menor benigno ficou em 731,
+# e 500 fica perto do meio dos dois em escala log, com folga pros dois lados
+QUI2_CORTE = 500.0
 
 
 def atacante(carga, proc):
@@ -60,7 +65,7 @@ def carregar(diretorio):
 REGRAS = {
     "entropia comum": lambda ev, t: ev.entropia >= t,
     "miller-madow": lambda ev, t: ev.entropia_mm >= t,
-    "miller-madow + qui2": lambda ev, t: (ev.entropia_mm >= t) & (ev.qui2 <= QUI2_UNIFORME),
+    "miller-madow + qui2": lambda ev, t: (ev.entropia_mm >= t) & (ev.qui2 <= QUI2_CORTE),
 }
 
 
@@ -176,7 +181,9 @@ def graficos(eventos, sufixo, t_mm):
         for positivo, cor, rot in ((False, "#4c78a8", "benigno"), (True, "#e45756", "cifragem")):
             s = alta[alta.positivo == positivo]
             ax.scatter(s.entropia_mm, s.qui2, color=cor, s=18, alpha=0.7, label=rot)
-        ax.axhline(QUI2_UNIFORME, color="#222", lw=1, label=f"qui2 = {QUI2_UNIFORME:.0f}, p 0,001")
+        ax.axhline(QUI2_CORTE, color="#222", lw=1, label=f"corte usado, {QUI2_CORTE:.0f}")
+        ax.axhline(QUI2_UNIFORME, color="#888", ls="--", lw=1,
+                   label=f"quantil 0,999 teórico, {QUI2_UNIFORME:.0f}")
         ax.set_yscale("log")
         ax.set_xlabel("entropia com correção de Miller-Madow, bits por byte")
         ax.set_ylabel("qui-quadrado contra a uniforme, escala log")
@@ -226,8 +233,15 @@ def main():
             "execuções com falso": f"{a['execucoes_com_falso']}/{a['execucoes']}",
         })
     md += ["## Regras", "", tabela_md(pd.DataFrame(linhas)), ""]
-    md.append(f"qui2 limite = {QUI2_UNIFORME:.0f}, quantil 0,999 da qui-quadrado com 255 graus "
-              "de liberdade. Não é ajustado nos dados, vem da teoria.")
+    pos_ev = eventos[eventos.positivo]
+    neg_alta = eventos[~eventos.positivo & (eventos.entropia_mm >= LIMIAR_PADRAO)]
+    md.append(f"Corte de qui2 = {QUI2_CORTE:.0f}. O quantil 0,999 teórico da qui-quadrado com "
+              f"255 graus de liberdade é {QUI2_UNIFORME:.0f} e deixaria "
+              f"{int((pos_ev.qui2 > QUI2_UNIFORME).sum())} de {len(pos_ev)} eventos de cifragem "
+              f"acima, contra {int((pos_ev.qui2 > QUI2_CORTE).sum())} com o corte usado. "
+              f"Maior qui2 de cifragem {pos_ev.qui2.max():.0f}, menor qui2 benigno com entropia "
+              f"corrigida a partir de {LIMIAR_PADRAO}, "
+              f"{neg_alta.qui2.min():.0f}." if not neg_alta.empty else "")
     md.append("")
 
     regra_final = "miller-madow + qui2" if "miller-madow + qui2" in recs else "miller-madow"

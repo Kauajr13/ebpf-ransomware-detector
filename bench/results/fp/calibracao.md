@@ -12,7 +12,7 @@ Taxas por execução. Uma execução benigna conta como alarme falso se qualquer
 | miller-madow | 100% | 9/40 | 7.99 | 7.99 a 7.995 | 100% | 0/40 |
 | miller-madow + qui2 | 100% | 0/40 | 7.8 | 7.0 a 7.995 | 100% | 0/40 |
 
-qui2 limite = 325, quantil 0,999 da qui-quadrado com 255 graus de liberdade. Não é ajustado nos dados, vem da teoria.
+Corte de qui2 = 500. O quantil 0,999 teórico da qui-quadrado com 255 graus de liberdade é 325 e deixaria 3 de 66 eventos de cifragem acima, contra 0 com o corte usado. Maior qui2 de cifragem 361, menor qui2 benigno com entropia corrigida a partir de 7.8, 731.
 
 ## Por carga, regra miller-madow + qui2 em 7.8
 
