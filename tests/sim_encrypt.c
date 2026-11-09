@@ -140,6 +140,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // com stdout num pipe o buffer e de 4 KiB e se perde inteiro no SIGKILL,
+    // o que fazia a contagem de CIFRADO sair menor que o estrago real
+    setvbuf(stdout, NULL, _IOLBF, 0);
+
+    // CLOCK_MONOTONIC e o mesmo relogio do bpf_ktime_get_ns, entao o
+    // benchmark subtrai esse instante direto do ts_kill_ns do detector
+    struct timespec tsInicio;
+    clock_gettime(CLOCK_MONOTONIC, &tsInicio);
+    fprintf(stderr, "[*] inicio_ns=%llu\n",
+            (unsigned long long)tsInicio.tv_sec * 1000000000ULL + tsInicio.tv_nsec);
+
     long tInicio = msAgora();
     fprintf(stderr, "[*] simulando cifragem em %s, max %d arquivos\n", dirAlvo, maxArquivos);
 

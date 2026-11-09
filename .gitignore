@@ -5,3 +5,4 @@ ransomware_detect
 tests/sim_encrypt
 tests/sim_benign
 __pycache__/
+bench/results/fp/*.strace

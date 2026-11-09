@@ -1,0 +1,3 @@
+[*] inicio_ns=55061403870438
+[*] simulando cifragem em /tmp/bench_fp/saida, max 60 arquivos
+[*] concluido: 60 arquivos em 572 ms (104.9 arq/s)
